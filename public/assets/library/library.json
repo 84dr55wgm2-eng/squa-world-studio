@@ -1,0 +1,150 @@
+{
+  "format": "squa-world-studio/asset-library",
+  "version": 1,
+  "assets": [
+    {
+      "id": "chair-damask",
+      "name": "Chaise damassée",
+      "category": "props.furniture",
+      "modelUrl": "chair-damask/ChairDamaskPurplegold.glb",
+      "thumbnailUrl": "chair-damask/thumb.jpg",
+      "tags": [
+        "chaise",
+        "mobilier",
+        "intérieur",
+        "salon"
+      ],
+      "defaultScale": 1,
+      "pivot": "bottom-center",
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Eric Chadwick",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/ChairDamaskPurplegold"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "ChairDamaskPurplegold"
+      }
+    },
+    {
+      "id": "velvet-sofa",
+      "name": "Canapé en velours",
+      "category": "props.furniture",
+      "modelUrl": "velvet-sofa/GlamVelvetSofa.glb",
+      "thumbnailUrl": "velvet-sofa/thumb.jpg",
+      "tags": [
+        "canapé",
+        "sofa",
+        "mobilier",
+        "intérieur",
+        "salon"
+      ],
+      "defaultScale": 1,
+      "pivot": "bottom-center",
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Eric Chadwick",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/GlamVelvetSofa"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "GlamVelvetSofa"
+      }
+    },
+    {
+      "id": "vase-flowers",
+      "name": "Vase de fleurs",
+      "category": "nature.plants",
+      "modelUrl": "vase-flowers/GlassVaseFlowers.glb",
+      "thumbnailUrl": "vase-flowers/thumb.jpg",
+      "tags": [
+        "fleurs",
+        "vase",
+        "plante",
+        "décoration"
+      ],
+      "defaultScale": 1,
+      "pivot": "bottom-center",
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Eric Chadwick, Rico Cilliers",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/GlassVaseFlowers"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "GlassVaseFlowers"
+      }
+    },
+    {
+      "id": "broken-window",
+      "name": "Fenêtre à vitre brisée",
+      "category": "architecture.windows",
+      "modelUrl": "broken-window/GlassBrokenWindow.glb",
+      "thumbnailUrl": "broken-window/thumb.jpg",
+      "tags": [
+        "fenêtre",
+        "vitre",
+        "verre",
+        "façade"
+      ],
+      "defaultScale": 1,
+      "pivot": "bottom-center",
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Eric Chadwick",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/GlassBrokenWindow"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "GlassBrokenWindow"
+      }
+    },
+    {
+      "id": "milk-truck",
+      "name": "Camion de livraison",
+      "category": "vehicles",
+      "modelUrl": "milk-truck/CesiumMilkTruck.glb",
+      "thumbnailUrl": "milk-truck/thumb.jpg",
+      "tags": [
+        "camion",
+        "véhicule",
+        "rue",
+        "livraison"
+      ],
+      "defaultScale": 1,
+      "pivot": "bottom-center",
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Cesium",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMilkTruck"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "CesiumMilkTruck"
+      }
+    },
+    {
+      "id": "cesium-man",
+      "name": "Personnage (pose de référence)",
+      "category": "characters",
+      "modelUrl": "cesium-man/CesiumMan.glb",
+      "thumbnailUrl": "cesium-man/thumb.jpg",
+      "tags": [
+        "personnage",
+        "humain",
+        "silhouette"
+      ],
+      "defaultScale": 1,
+      "pivot": "bottom-center",
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Cesium",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMan"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "CesiumMan"
+      }
+    }
+  ]
+}

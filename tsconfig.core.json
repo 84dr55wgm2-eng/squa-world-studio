@@ -1,0 +1,19 @@
+{
+  "//": "Vérifie uniquement le cœur (TypeScript pur, sans React ni Three.js) et ses tests.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src/core", "src/assets/manifest.ts", "src/assets/categories.ts"]
+}
