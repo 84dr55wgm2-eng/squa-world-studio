@@ -900,7 +900,7 @@ button:disabled {
 
   .app {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 42%);
+    grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 48%);
     grid-template-areas:
       'top'
       'view'
@@ -967,9 +967,25 @@ button:disabled {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  /* Sur téléphone, le panneau entier défile (et non chaque bloc) : la bibliothèque est accessible en entier. */
+  .panel-left,
+  .panel-right {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .panel-left > .hierarchy-block,
   .panel-left > .library-block {
+    flex: none;
     max-height: none;
+    overflow: visible;
     border-top: none;
+  }
+
+  .panel-left > :last-child,
+  .panel-right > :last-child {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   }
 
   .app[data-mobile-tab='scene'] .panel-right,
