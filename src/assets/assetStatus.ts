@@ -15,6 +15,12 @@ export interface AssetRuntimeInfo {
   nativeBox?: Box;
   meshCount?: number;
   triangleCount?: number;
+  materialCount?: number;
+  textureCount?: number;
+  /** Octets téléchargés / lus. */
+  byteSize?: number;
+  /** Chargé, mais avec des ressources manquantes (textures…). */
+  warning?: string;
   /** Nombre de chargements réseau/disque effectués pour cet asset (vérifie le cache). */
   loadCount: number;
 }

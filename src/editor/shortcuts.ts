@@ -3,8 +3,19 @@
  * (sauf ⌘/Ctrl+S), pour ne pas voler l'undo natif du texte.
  */
 import { useEffect } from 'react';
-import { deleteObject, duplicateObject, redo, select, setTransformMode, undo, useEditor } from '../store/editorStore.ts';
-import { frameObject, resetView } from '../viewport/cameraController.ts';
+import {
+  deleteSelection,
+  duplicateSelection,
+  groupSelection,
+  redo,
+  select,
+  selectAll,
+  setTransformMode,
+  undo,
+  ungroupSelection,
+  useEditor,
+} from '../store/editorStore.ts';
+import { frameSelection, resetView } from '../viewport/cameraController.ts';
 import { openProject, saveProject } from '../io/projectActions.ts';
 
 function isTyping(target: EventTarget | null): boolean {
@@ -18,6 +29,11 @@ export const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: 'H', action: 'Vue par défaut' },
   { keys: 'Suppr / ⌫', action: 'Supprimer' },
   { keys: '⌘/Ctrl D', action: 'Dupliquer' },
+  { keys: '⌘/Ctrl G', action: 'Grouper' },
+  { keys: '⇧⌘G / Ctrl ⇧G', action: 'Dégrouper' },
+  { keys: '⌘/Ctrl A', action: 'Tout sélectionner' },
+  { keys: '⇧ / ⌘ / Ctrl + clic', action: 'Ajouter / retirer de la sélection' },
+  { keys: 'Clic répété', action: 'Entrer dans un groupe' },
   { keys: '⌘/Ctrl Z', action: 'Annuler' },
   { keys: '⇧⌘Z / Ctrl Y', action: 'Rétablir' },
   { keys: '⌘/Ctrl S', action: 'Enregistrer' },
@@ -38,7 +54,7 @@ export function useKeyboardShortcuts(): void {
       }
       if (isTyping(e.target) || (e.repeat && key !== 'z')) return;
 
-      const selectedId = useEditor.getState().selectedId;
+      const hasSelection = useEditor.getState().selectedIds.length > 0;
 
       if (mod) {
         if (key === 'z' && !e.shiftKey) {
@@ -49,7 +65,14 @@ export function useKeyboardShortcuts(): void {
           redo();
         } else if (key === 'd') {
           e.preventDefault();
-          if (selectedId) duplicateObject(selectedId);
+          if (hasSelection) duplicateSelection();
+        } else if (key === 'g') {
+          e.preventDefault();
+          if (e.shiftKey) ungroupSelection();
+          else groupSelection();
+        } else if (key === 'a') {
+          e.preventDefault();
+          selectAll();
         } else if (key === 'o') {
           e.preventDefault();
           void openProject();
@@ -69,16 +92,16 @@ export function useKeyboardShortcuts(): void {
           setTransformMode('scale');
           break;
         case 'f':
-          if (selectedId) frameObject(selectedId);
+          if (hasSelection) frameSelection();
           break;
         case 'h':
           resetView();
           break;
         case 'delete':
         case 'backspace':
-          if (selectedId) {
+          if (hasSelection) {
             e.preventDefault();
-            deleteObject(selectedId);
+            deleteSelection();
           }
           break;
         case 'escape':

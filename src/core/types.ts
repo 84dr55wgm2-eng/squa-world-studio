@@ -3,7 +3,7 @@
  *
  * Ce fichier est du TypeScript pur : aucune dépendance à React ni à Three.js.
  * Tout ce qui est décrit ici est sérialisable tel quel en JSON — c'est la base
- * du format de fichier `.squa.json` (voir docs/SCENE_FORMAT.md).
+ * du format de fichier `.squa` (voir docs/SCENE_FORMAT.md).
  *
  * Conventions :
  * - unités : 1 unité = 1 mètre ; axe Y vers le haut (convention Three.js)
@@ -133,7 +133,7 @@ export interface AssetFileRef {
  *   (ex. "assets/library/chair/chair.glb") et sert de secours si le manifest change.
  * - `url` : modèle distant (doit autoriser le CORS).
  * - `file` : fichier(s) importé(s) par l'utilisateur. Les octets ne sont pas dans le document :
- *   ils sont stockés dans le navigateur et intégrés au fichier .squa.json à l'enregistrement.
+ *   ils sont stockés dans le navigateur et intégrés au fichier .squa à l'enregistrement.
  *   Un .gltf peut venir avec ses fichiers annexes (.bin, textures) : `files` les liste tous.
  */
 export type AssetSource =

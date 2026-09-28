@@ -1,5 +1,5 @@
 /**
- * Format de fichier SQUA World Studio (`.squa.json`), schéma v3.
+ * Format de fichier SQUA World Studio (`.squa`), schéma v3.
  *
  * Voir docs/SCENE_FORMAT.md. Le chargement est défensif : chaque champ est validé,
  * les valeurs manquantes non essentielles reçoivent leur défaut (avec avertissement),
@@ -33,9 +33,10 @@ import type {
 
 export const SCENE_FORMAT = 'squa-world-studio/scene';
 export const SCENE_FORMAT_VERSION = 3;
-export const SCENE_FILE_EXTENSION = '.squa.json';
+/** Fichier de scène : JSON UTF-8, extension .squa (les anciens .squa.json s'ouvrent aussi). */
+export const SCENE_FILE_EXTENSION = '.squa';
 
-/** Contenu d'un fichier importé, intégré au .squa.json pour que la scène soit transportable. */
+/** Contenu d'un fichier importé, intégré au .squa pour que la scène soit transportable. */
 export interface EmbeddedFile {
   name: string;
   size: number;

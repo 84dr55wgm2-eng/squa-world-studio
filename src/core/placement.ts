@@ -43,6 +43,8 @@ export interface RelationSpec {
   z?: number;
   /** Lacet imposé (degrés, monde). */
   yaw?: number;
+  /** AGAINST : conserver l'altitude actuelle (ex. objet posé sur une table contre le mur). */
+  keepY?: boolean;
 }
 
 export interface PlacementSolution {
@@ -274,7 +276,7 @@ export function solvePlacement(doc: SceneDocument, subjectId: ObjectId, rel: Rel
       lateral = clamp(lateral, -pick.hw + hwS, pick.hw - hwS);
       const along = pick.h + (rel.gap ?? 0.005) - n0;
       const rules = effectiveRules(subject);
-      const keepHeight = rules.support === 'wall' || rules.support === 'none';
+      const keepHeight = rel.keepY || rules.support === 'wall' || rules.support === 'none';
       const y = keepHeight ? wt.position[1] : t.base - B.min[1];
       const wc = (w0 + w1) / 2;
       return solution(
@@ -351,4 +353,76 @@ export function solvePlacement(doc: SceneDocument, subjectId: ObjectId, rel: Rel
       );
     }
   }
+}
+
+/* ------------------------------------------------------------------ Aimantation aux surfaces */
+
+const NOT_A_SUPPORT = new Set(['wall', 'door', 'window', 'light', 'camera', 'ceiling']);
+
+function pointInFootprint(s: Spatial, x: number, z: number): boolean {
+  const ax = axesOf(s.obb.yaw);
+  const dx = x - s.obb.center[0], dz = z - s.obb.center[2];
+  if (!s.obb.upright) return x >= s.aabb.min[0] && x <= s.aabb.max[0] && z >= s.aabb.min[2] && z <= s.aabb.max[2];
+  return Math.abs(dx * ax.x[0] + dz * ax.x[1]) <= s.obb.half[0] + 1e-6 && Math.abs(dx * ax.z[0] + dz * ax.z[1]) <= s.obb.half[2] + 1e-6;
+}
+
+/**
+ * Altitude de la surface qui porte l'objet à sa position horizontale actuelle : le dessus le plus
+ * haut parmi les objets situés sous son centre (sol, table, trottoir…), sans dépasser son sommet ;
+ * 0 (le sol) sinon. Les murs, portes, fenêtres ne portent rien.
+ */
+export function supportLevel(doc: SceneDocument, id: ObjectId, ctx: BoundsContext): number {
+  const s = objectSpatial(doc, id, ctx);
+  if (!s) return 0;
+  const excluded = new Set(getSubtreeIds(doc, id));
+  let level = 0;
+  for (const o of Object.values(doc.objects)) {
+    if (excluded.has(o.id) || !isSolid(o) || !o.visible || NOT_A_SUPPORT.has(o.semanticRole)) continue;
+    const t = objectSpatial(doc, o.id, ctx);
+    if (!t || t.top > s.top - 1e-3 || t.top <= level) continue;
+    if (pointInFootprint(t, s.center[0], s.center[2])) level = t.top;
+  }
+  return level;
+}
+
+/** Transform qui pose l'objet sur sa surface porteuse (voir supportLevel), sans le déplacer horizontalement. */
+export function dropToSurface(doc: SceneDocument, id: ObjectId, ctx: BoundsContext): PlacementSolution | null {
+  const s = objectSpatial(doc, id, ctx);
+  if (!s) return null;
+  const level = supportLevel(doc, id, ctx);
+  const wt = worldTransform(doc, id);
+  const pivot: Vec3 = [wt.position[0], wt.position[1] + (level - s.base), wt.position[2]];
+  return solution(doc, id, pivot, wt.rotation, wt.scale, []);
+}
+
+/**
+ * Si l'objet est à moins de `distance` de la face d'un mur (et en face de lui), renvoie le
+ * placement CONTRE ce mur (dos au mur). Sinon null.
+ */
+export function snapAgainstNearestWall(doc: SceneDocument, id: ObjectId, ctx: BoundsContext, distance = 0.25): PlacementSolution | null {
+  const obj = getObject(doc, id);
+  if (['wall', 'door', 'window', 'floor', 'road', 'sidewalk', 'building', 'room'].includes(obj.semanticRole)) return null;
+  const s = objectSpatial(doc, id, ctx);
+  if (!s) return null;
+  const excluded = new Set(getSubtreeIds(doc, id));
+  let best: { gap: number; wallId: ObjectId; side: Side } | null = null;
+  for (const w of Object.values(doc.objects)) {
+    if (w.semanticRole !== 'wall' || excluded.has(w.id) || !w.visible) continue;
+    const t = objectSpatial(doc, w.id, ctx);
+    if (!t) continue;
+    const ax = axesOf(t.obb.yaw);
+    const dx = s.center[0] - t.obb.center[0], dz = s.center[2] - t.obb.center[2];
+    const along = dx * ax.x[0] + dz * ax.x[1];
+    const normal = dx * ax.z[0] + dz * ax.z[1];
+    if (Math.abs(along) > t.obb.half[0]) continue;
+    const n: XZ = normal >= 0 ? ax.z : [-ax.z[0], -ax.z[1]];
+    // Demi-épaisseur du sujet le long de la normale du mur.
+    const sub = axesOf(s.obb.yaw);
+    const hN = Math.abs(dot(n, sub.x)) * s.obb.half[0] + Math.abs(dot(n, sub.z)) * s.obb.half[2];
+    const gap = Math.abs(normal) - t.obb.half[2] - hN;
+    if (gap < -hN || gap > distance) continue;
+    if (!best || gap < best.gap) best = { gap, wallId: w.id, side: normal >= 0 ? 'front' : 'back' };
+  }
+  if (!best) return null;
+  return solvePlacement(doc, id, { type: 'AGAINST', target: best.wallId, side: best.side, keepY: true }, ctx);
 }

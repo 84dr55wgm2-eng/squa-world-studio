@@ -286,3 +286,26 @@ describe('composition (pièce, rue, prefabs)', () => {
     if (!r.ok) assert.equal(r.index, 1);
   });
 });
+
+import { dropToSurface, snapAgainstNearestWall, supportLevel } from '../index.ts';
+
+describe('aimantation aux surfaces', () => {
+  it('pose sur la table sous le centre, sinon au sol ; plaque contre un mur proche', () => {
+    const r = run(createEmptyDocument(), [
+      { action: 'ADD_OBJECT', element: 'table', as: 'table' },
+      { action: 'ADD_OBJECT', element: 'box', size: [0.2, 0.2, 0.2], as: 'cup', position: [0.3, 2, 0.1] },
+      { action: 'ADD_OBJECT', element: 'box', size: [0.2, 0.2, 0.2], as: 'far', position: [4, 2, 0] },
+      { action: 'ADD_OBJECT', element: 'wall', as: 'wall', position: [0, 0, -3] },
+      { action: 'ADD_OBJECT', element: 'shelf', as: 'shelf', position: [1, 0, -2.6], rotation: [0, 20, 0] },
+    ]);
+    const ctx = ctxFor()(r.doc);
+    near(supportLevel(r.doc, r.aliases.cup, ctx), 0.75);
+    assert.equal(dropToSurface(r.doc, r.aliases.cup, ctx)!.transform.position[1], 0.75);
+    assert.equal(dropToSurface(r.doc, r.aliases.far, ctx)!.transform.position[1], 0);
+    const sol = snapAgainstNearestWall(r.doc, r.aliases.shelf, ctx)!;
+    assert.ok(sol);
+    near(sol.transform.rotation[1], 0);
+    near(sol.transform.position[2], -3 + 0.1 + 0.005 + 0.175);
+    assert.equal(snapAgainstNearestWall(r.doc, r.aliases.far, ctx), null);
+  });
+});

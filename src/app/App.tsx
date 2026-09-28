@@ -11,6 +11,7 @@ import { PropertiesPanel } from '../editor/panels/PropertiesPanel.tsx';
 import { SceneHierarchy } from '../editor/panels/SceneHierarchy.tsx';
 import { useKeyboardShortcuts } from '../editor/shortcuts.ts';
 import { TopBar } from '../editor/TopBar.tsx';
+import { ValidatorPanel, WorldDialogs } from '../editor/WorldDialogs.tsx';
 import { ViewportHelp } from '../editor/ViewportHelp.tsx';
 import { startAutosave } from '../io/autosave.ts';
 import { Viewport } from '../viewport/Viewport.tsx';
@@ -54,12 +55,14 @@ export function App() {
           />
         )}
         <ViewportHelp />
+        <ValidatorPanel />
         <Notice />
       </main>
       <MobileTabs value={mobileTab} onChange={setMobileTab} />
       <aside className="panel panel-right">
         <PropertiesPanel />
       </aside>
+      <WorldDialogs />
       <ConfirmDialog />
     </div>
   );

@@ -2,12 +2,11 @@
  * Panneau droit : propriétés de l'objet sélectionné, ou réglages de la scène
  * lorsque rien n'est sélectionné.
  */
-import type { ReactNode } from 'react';
 import {
   groundedY,
   isEffectivelyLocked,
-  localBoxOf,
   objectDimensions,
+  objectLocalBox,
   placeOnGroundTx,
   type ModelObject,
   type ModelPivot,
@@ -23,25 +22,19 @@ import {
   type SceneObject,
   type Transform,
 } from '../../core/index.ts';
-import { deleteObject, duplicateObject, execute, selectSelectedObject, useEditor } from '../../store/editorStore.ts';
+import { deleteObject, duplicateObject, execute, selectSelectedObject, setValidatorOpen, useEditor } from '../../store/editorStore.ts';
+import { worldContext } from '../../world/worldContext.ts';
+import { changeMaterial } from '../../world/worldActions.ts';
+import { ElementSection, GroupSection, MaterialEditor, MultiSelectionPanel, PlacementSection, Section, SemanticsSection, modelMaterialValue } from './WorldSections.tsx';
 import { currentViewAsTransform, frameObject, viewThroughCamera } from '../../viewport/cameraController.ts';
 import { useAssetStatus } from '../../assets/assetStatus.ts';
-import { IconCopy, IconGround, IconEye, IconEyeOff, IconLock, IconTarget, IconTrash, IconUnlock, ObjectTypeIcon, TYPE_LABEL } from '../icons.tsx';
+import { IconCopy, IconGround, IconEye, IconEyeOff, IconLock, IconShield, IconTarget, IconTrash, IconUnlock, ObjectTypeIcon, TYPE_LABEL } from '../icons.tsx';
 import { NumberField } from '../widgets/NumberField.tsx';
 import { TextField } from '../widgets/TextField.tsx';
 import { Vec3Field } from '../widgets/Vec3Field.tsx';
 
 const MIN_SCALE = 0.001;
 const safeScale = (n: number) => (Math.abs(n) < MIN_SCALE ? (n < 0 ? -MIN_SCALE : MIN_SCALE) : n);
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="panel-section">
-      <h3 className="section-title">{title}</h3>
-      {children}
-    </section>
-  );
-}
 
 function ColorRow({ label, value, disabled, onChange }: { label: string; value: string; disabled?: boolean; onChange: (v: string) => void }) {
   return (
@@ -85,9 +78,11 @@ function TransformSection({ obj, locked }: { obj: SceneObject; locked: boolean }
 
 /** Dimensions réelles (L × H × P) et « Poser au sol », pour les objets dont la boîte est connue. */
 function DimensionsRow({ obj, locked }: { obj: SceneObject; locked: boolean }) {
-  const nativeBox = useAssetStatus((s) => (obj.type === 'model' ? s.byId[obj.model.assetId]?.nativeBox : undefined));
-  const local = localBoxOf(obj, nativeBox);
-  if (!local) return null;
+  // Boîte réelle : élément (dimensions), modèle (mesure du fichier), groupe (union de ses enfants).
+  useAssetStatus((s) => (obj.type === 'model' ? s.byId[obj.model.assetId]?.nativeBox : undefined));
+  const localKey = useEditor((s) => JSON.stringify(objectLocalBox(s.doc, obj.id, worldContext(s.doc))));
+  const local = localKey && localKey !== 'null' ? JSON.parse(localKey) : null;
+  if (!local || obj.type === 'light' || obj.type === 'camera') return null;
   const [w, h, d] = objectDimensions(local, obj.transform);
   const fmt = (v: number) => (v >= 10 ? v.toFixed(1) : v >= 1 ? v.toFixed(2) : v.toFixed(3)).replace('.', ',');
   const onGround = Math.abs(groundedY(local, obj.transform) - obj.transform.position[1]) < 1e-4;
@@ -147,14 +142,29 @@ function ModelSection({ obj, locked }: { obj: ModelObject; locked: boolean }) {
       <div className="prop-row">
         <span className="prop-label">État</span>
         <span className={`value-text status-${info?.status ?? 'loading'}`}>
-          {info?.status === 'ready'
-            ? `Chargé · ${info.meshCount} maillage${(info.meshCount ?? 0) > 1 ? 's' : ''} · ${formatCount(info.triangleCount ?? 0)} triangles`
-            : info?.status === 'error'
-              ? 'Impossible de charger cet asset.'
-              : 'Chargement…'}
+          {info?.status === 'ready' ? (info.warning ? 'Chargé (incomplet)' : 'Chargé') : info?.status === 'error' ? 'Impossible de charger cet asset.' : 'Chargement…'}
         </span>
       </div>
       {info?.status === 'error' && info.error && <p className="hint hint-error">{info.error}</p>}
+      {info?.warning && <p className="hint hint-error">{info.warning}</p>}
+      {info?.status === 'ready' && (
+        <dl className="inspector-grid" aria-label="Informations sur l'asset">
+          <dt>Maillages</dt>
+          <dd>{formatCount(info.meshCount ?? 0)}</dd>
+          <dt>Triangles</dt>
+          <dd>{formatCount(info.triangleCount ?? 0)}</dd>
+          <dt>Matériaux</dt>
+          <dd>{formatCount(info.materialCount ?? 0)}</dd>
+          <dt>Textures</dt>
+          <dd>{formatCount(info.textureCount ?? 0)}</dd>
+          <dt>Fichier</dt>
+          <dd>{info.byteSize ? formatBytes(info.byteSize) : '—'}</dd>
+          <dt>ID asset</dt>
+          <dd>
+            <code>{obj.model.assetId}</code>
+          </dd>
+        </dl>
+      )}
       <div className="prop-row">
         <span className="prop-label">Unité</span>
         <select
@@ -222,19 +232,7 @@ function ModelSection({ obj, locked }: { obj: ModelObject; locked: boolean }) {
 }
 
 const formatCount = (n: number) => n.toLocaleString('fr-FR');
-
-function MaterialSection({ obj, locked }: { obj: Extract<SceneObject, { type: 'box' | 'sphere' }>; locked: boolean }) {
-  return (
-    <Section title="Apparence">
-      <ColorRow
-        label="Couleur"
-        value={obj.material.color}
-        disabled={locked}
-        onChange={(color) => execute(updateObjectTx(useEditor.getState().doc, obj.id, { material: { ...obj.material, color } }, `Couleur de ${obj.name}`), { mergeKey: `color:${obj.id}` })}
-      />
-    </Section>
-  );
-}
+const formatBytes = (n: number) => (n >= 1e6 ? `${(n / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mo` : `${Math.max(1, Math.round(n / 1e3))} Ko`);
 
 function LightSection({ obj, locked }: { obj: LightObject; locked: boolean }) {
   const update = (light: LightObject['light'], label: string, mergeKey?: string) =>
@@ -329,10 +327,24 @@ function ObjectProperties({ obj }: { obj: SceneObject }) {
       </Section>
 
       <TransformSection obj={obj} locked={locked} />
-      {(obj.type === 'box' || obj.type === 'sphere') && <MaterialSection obj={obj} locked={locked} />}
+      {obj.type === 'element' && <ElementSection obj={obj} locked={locked} />}
+      {(obj.type === 'box' || obj.type === 'sphere') && <MaterialEditor ids={[obj.id]} value={obj.material} locked={locked} />}
+      {obj.type === 'element' && <MaterialEditor ids={[obj.id]} value={obj.element.material} locked={locked} />}
       {obj.type === 'light' && <LightSection obj={obj} locked={locked} />}
       {obj.type === 'camera' && <CameraSection obj={obj} locked={locked} />}
       {obj.type === 'model' && <ModelSection obj={obj} locked={locked} />}
+      {obj.type === 'model' && (
+        <MaterialEditor
+          ids={[obj.id]}
+          value={modelMaterialValue(obj)}
+          locked={locked}
+          onReset={obj.model.materialOverride ? () => changeMaterial([obj.id], null) : undefined}
+          note={obj.model.materialOverride ? 'Matériaux du fichier modifiés pour cet objet uniquement.' : 'Matériaux d\u2019origine du fichier (GLTF) conservés. Une modification ne touche que cet objet.'}
+        />
+      )}
+      {obj.type !== 'light' && obj.type !== 'camera' && <PlacementSection obj={obj} locked={locked} />}
+      <SemanticsSection obj={obj} locked={locked} />
+      {(obj.type === 'group' || obj.type === 'element' || obj.type === 'model') && <GroupSection obj={obj} />}
 
       <p className="id-line" title="Identifiant unique de l'objet">
         id : <code>{obj.id}</code>
@@ -353,7 +365,12 @@ function SceneSettingsPanel() {
           {count} objet{count > 1 ? 's' : ''}
         </span>
       </div>
-      <p className="hint">Aucun objet sélectionné. Cliquez sur un objet dans la vue ou dans la hiérarchie.</p>
+      <p className="hint">Aucun objet sélectionné. Cliquez sur un objet dans la vue ou dans la hiérarchie (⇧ + clic pour en sélectionner plusieurs).</p>
+      <div className="button-row">
+        <button type="button" className="btn" onClick={() => setValidatorOpen(true)}>
+          <IconShield /> Valider la scène
+        </button>
+      </div>
       <Section title="Environnement">
         <ColorRow label="Fond" value={settings.background} onChange={(background) => set({ background }, 'bg')} />
         <NumberRow label="Ambiance" value={settings.ambientIntensity} min={0} step={0.1} onCommit={(ambientIntensity) => set({ ambientIntensity })} />
@@ -378,5 +395,6 @@ function SceneSettingsPanel() {
 
 export function PropertiesPanel() {
   const obj = useEditor(selectSelectedObject);
-  return <div className="properties">{obj ? <ObjectProperties obj={obj} /> : <SceneSettingsPanel />}</div>;
+  const multi = useEditor((s) => s.selectedIds.length > 1);
+  return <div className="properties">{multi ? <MultiSelectionPanel /> : obj ? <ObjectProperties obj={obj} /> : <SceneSettingsPanel />}</div>;
 }

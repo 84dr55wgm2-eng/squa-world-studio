@@ -7,7 +7,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useThree } from '@react-three/fiber';
-import { MathUtils, type Mesh, type Object3D } from 'three';
+import { MathUtils, type Material, type Mesh, type MeshStandardMaterial, type Object3D } from 'three';
 import { normalizeModel, type ModelObject } from '../../core/index.ts';
 import { acquireAsset, instantiate, releaseAsset } from '../../assets/assetCache.ts';
 import { useAssetStatus } from '../../assets/assetStatus.ts';
@@ -60,6 +60,55 @@ export function ModelContent({ obj }: { obj: ModelObject }) {
     });
     invalidate();
   }, [instance, castShadow, receiveShadow, invalidate]);
+
+  // Surcharge de matériau : chaque instance reçoit ses propres copies des matériaux (le fichier
+  // et les autres instances ne sont pas touchés). « Réinitialiser » rend les matériaux d'origine.
+  const override = obj.model.materialOverride;
+  const overrideKey = override ? JSON.stringify(override) : '';
+  useEffect(() => {
+    if (!instance) return;
+    instance.traverse((o) => {
+      const m = o as Mesh;
+      if (!m.isMesh) return;
+      const original = (m.userData.squaOriginalMaterial ??= m.material) as Material | Material[];
+      if (!override) {
+        if (m.material !== original) {
+          (Array.isArray(m.material) ? m.material : [m.material]).forEach((x) => x.dispose());
+          m.material = original;
+        }
+        return;
+      }
+      if (m.material === original) m.material = Array.isArray(original) ? original.map((x) => x.clone()) : original.clone();
+      const origList = Array.isArray(original) ? original : [original];
+      (Array.isArray(m.material) ? m.material : [m.material]).forEach((mat, i) => {
+        const std = mat as MeshStandardMaterial;
+        const src = origList[i] as MeshStandardMaterial;
+        if (override.color !== undefined && std.color) std.color.set(override.color);
+        else if (std.color && src.color) std.color.copy(src.color);
+        if ('roughness' in std) std.roughness = override.roughness ?? src.roughness;
+        if ('metalness' in std) std.metalness = override.metalness ?? src.metalness;
+        const opacity = override.opacity ?? src.opacity;
+        std.opacity = opacity;
+        std.transparent = src.transparent || opacity < 1;
+        std.depthWrite = src.depthWrite && opacity >= 1;
+        std.needsUpdate = true;
+      });
+    });
+    invalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instance, overrideKey, invalidate]);
+
+  // Libère les copies de matériaux de cette instance.
+  useEffect(
+    () => () => {
+      instance?.traverse((o) => {
+        const m = o as Mesh;
+        const original = m.userData?.squaOriginalMaterial;
+        if (m.isMesh && original && m.material !== original) (Array.isArray(m.material) ? m.material : [m.material]).forEach((x) => x.dispose());
+      });
+    },
+    [instance],
+  );
 
   const pivotOffset = useMemo(
     () => (info?.nativeBox ? normalizeModel(info.nativeBox, { pivot, orientation, unitScale }).pivotOffset : ([0, 0, 0] as const)),

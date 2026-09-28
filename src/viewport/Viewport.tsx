@@ -125,9 +125,10 @@ function CameraBridge() {
   const controls = useThree((s) => s.controls) as unknown as OrbitLike | null;
   const invalidate = useThree((s) => s.invalidate);
   const domElement = useThree((s) => s.gl.domElement);
+  const scene = useThree((s) => s.scene);
   useEffect(() => {
     if (!controls) return;
-    attachCameraBridge({ camera, controls, invalidate, domElement });
+    attachCameraBridge({ camera, controls, invalidate, domElement, scene });
     // Dès que l'utilisateur manipule la vue, on ne regarde plus « à travers » une caméra de scène.
     const leaveLookThrough = () => setLookThrough(null);
     controls.addEventListener('start', leaveLookThrough);
@@ -135,7 +136,7 @@ function CameraBridge() {
       controls.removeEventListener('start', leaveLookThrough);
       attachCameraBridge(null);
     };
-  }, [camera, controls, invalidate, domElement]);
+  }, [camera, controls, invalidate, domElement, scene]);
   return null;
 }
 

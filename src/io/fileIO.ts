@@ -1,5 +1,6 @@
 /**
- * Sauvegarde / chargement de fichiers `.squa.json` côté navigateur.
+ * Sauvegarde / chargement de fichiers de scène `.squa` (JSON) côté navigateur. Les `.squa.json` des versions
+ * précédentes s'ouvrent aussi.
  * Téléchargement classique (fonctionne dans Chrome, Safari, Firefox) : aucun
  * accès disque direct, aucune dépendance.
  */
@@ -76,7 +77,8 @@ export function pickSceneFile(): Promise<{ fileName: string; result: ParseResult
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json,application/json';
+    // Pas de filtre d'extension : certains navigateurs mobiles grisent les extensions inconnues (.squa).
+    // Le contenu est de toute façon vérifié à la lecture.
     input.addEventListener('change', async () => {
       const file = input.files?.[0];
       if (!file) return resolve(null);

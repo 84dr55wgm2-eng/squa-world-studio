@@ -14,6 +14,7 @@ import {
   type Vec3,
 } from '../core/index.ts';
 import { execute, notify, useEditor } from '../store/editorStore.ts';
+import { withSurfaceSnap } from '../world/worldActions.ts';
 import { frameObject, getViewTargetOnGround } from '../viewport/cameraController.ts';
 import { ASSET_LOAD_ERROR, measureAsset } from './assetCache.ts';
 import { getAssetInfo } from './assetStatus.ts';
@@ -24,6 +25,7 @@ export interface PlaceOptions {
   /** Point du sol visé (dépôt glisser-déposer). Par défaut : le centre de la vue. */
   groundPoint?: Vec3;
   scale?: number;
+  rotation?: Vec3;
   model?: Partial<Omit<ModelProps, 'assetId'>>;
   /** Recadre la vue sur le nouvel objet (utile pour un modèle importé de taille inconnue). */
   frame?: boolean;
@@ -49,12 +51,13 @@ export async function addAssetToScene(record: AssetRecord, opts: PlaceOptions = 
   const ground = opts.groundPoint ?? getViewTargetOnGround() ?? [0, 0, 0];
   const { localBox } = normalizeModel(nativeBox, model);
   // Jamais sous le sol : le point le plus bas du modèle est posé sur Y = 0.
-  const y = groundedY(localBox, { position: [0, 0, 0], rotation: [0, 0, 0], scale });
+  const rotation: Vec3 = opts.rotation ?? [0, 0, 0];
+  const y = groundedY(localBox, { position: [0, 0, 0], rotation, scale });
   const position: Vec3 = [round(ground[0]), round(y), round(ground[2])];
 
   const doc = useEditor.getState().doc;
-  const { tx, id } = addModelTx(doc, doc.assets[record.id] ?? record, { position, scale, model });
-  if (!execute(tx, { select: id })) return null;
+  const { tx, id } = addModelTx(doc, doc.assets[record.id] ?? record, { position, rotation, scale, model });
+  if (!execute(withSurfaceSnap(tx, doc, [id]), { select: id })) return null;
 
   const size = boxSize(localBox).map((v) => v * s);
   const largest = Math.max(...size);
@@ -69,6 +72,7 @@ export function addLibraryAsset(def: AssetDefinition, groundPoint?: Vec3) {
   return addAssetToScene(libraryAssetRecord(def), {
     groundPoint,
     scale: def.defaultScale,
+    rotation: [...def.defaultRotation],
     model: { pivot: def.pivot, orientation: [...def.orientation], unitScale: def.unitScale },
   });
 }

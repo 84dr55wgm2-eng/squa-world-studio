@@ -3,7 +3,7 @@
  *
  * Filet de sécurité contre une fermeture d'onglet ou un rechargement : la scène
  * courante est réécrite ~1 s après chaque modification et restaurée au démarrage.
- * Ce n'est PAS un remplacement de « Enregistrer » (fichier .squa.json).
+ * Ce n'est PAS un remplacement de « Enregistrer » (fichier .squa).
  */
 import { documentToJson, parseSceneFile } from '../core/index.ts';
 import { notify, replaceDocument, selectIsDirty, useEditor } from '../store/editorStore.ts';

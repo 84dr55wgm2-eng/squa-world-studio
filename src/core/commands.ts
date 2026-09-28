@@ -125,6 +125,7 @@ export function renameProjectTx(doc: SceneDocument, name: string): Transaction {
 export interface AddModelOptions {
   name?: string;
   position?: Vec3;
+  rotation?: Vec3;
   scale?: Vec3;
   model?: Partial<Omit<ModelProps, 'assetId'>>;
   parentId?: ObjectId | null;
@@ -138,8 +139,12 @@ export function addModelTx(doc: SceneDocument, asset: AssetRecord, opts: AddMode
   const obj = createObject('model', {
     name: uniqueName(doc, opts.name ?? asset.name),
     position: opts.position,
+    rotation: opts.rotation,
     scale: opts.scale,
     model: { ...opts.model, assetId: asset.id },
+    semanticRole: asset.semanticRole,
+    category: asset.category,
+    source: { kind: 'user', ref: asset.id },
   });
   const ops: Operation[] = [];
   if (!doc.assets[asset.id]) ops.push({ type: 'asset', id: asset.id, record: structuredClone(asset) });

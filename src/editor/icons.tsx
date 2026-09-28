@@ -178,6 +178,75 @@ export const IconWarning = ({ size = 14 }: IconProps) => (
   </svg>
 );
 
+export const IconGroup = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <rect x="1.8" y="1.8" width="12.4" height="12.4" rx="1.5" strokeDasharray="2 1.6" />
+    <rect x="4.2" y="4.2" width="3.6" height="3.6" rx="0.6" />
+    <rect x="8.4" y="8.4" width="3.6" height="3.6" rx="0.6" />
+  </svg>
+);
+
+export const IconUngroup = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <rect x="2" y="2" width="5" height="5" rx="0.8" />
+    <rect x="9" y="9" width="5" height="5" rx="0.8" />
+    <path d="M9 4.5h3.5V7M7 11.5H3.5V9" />
+  </svg>
+);
+
+export const IconElement = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <path d="M2 13.5h12M3.5 13.5V4.5h9v9M6.5 13.5V9.5h3v4" />
+  </svg>
+);
+
+export const IconMagnet = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <path d="M3.5 2.5v5.5a4.5 4.5 0 0 0 9 0V2.5h-3v5.5a1.5 1.5 0 0 1-3 0V2.5z" />
+    <path d="M3.5 5h3M9.5 5h3" />
+  </svg>
+);
+
+export const IconCheck = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <path d="M3 8.5 6.5 12 13 4.5" />
+  </svg>
+);
+
+export const IconChevron = ({ size = 14, open = false }: IconProps & { open?: boolean }) => (
+  <svg {...base(size)} style={{ transform: open ? 'rotate(90deg)' : undefined, transition: 'transform 0.12s' }}>
+    <path d="M6 3.5 10.5 8 6 12.5" />
+  </svg>
+);
+
+export const IconSearch = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <circle cx="7" cy="7" r="4.5" />
+    <path d="m10.5 10.5 3.5 3.5" />
+  </svg>
+);
+
+export const IconPrefab = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <rect x="2" y="7" width="5" height="6.5" rx="0.8" />
+    <rect x="9" y="7" width="5" height="6.5" rx="0.8" />
+    <path d="M4.5 7V3.5h7V7" />
+  </svg>
+);
+
+export const IconCode = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <path d="M5.5 4 2 8l3.5 4M10.5 4 14 8l-3.5 4M9 2.5 7 13.5" />
+  </svg>
+);
+
+export const IconShield = ({ size = 14 }: IconProps) => (
+  <svg {...base(size)}>
+    <path d="M8 1.8 13.2 3.8v4.1c0 3-2.2 5.3-5.2 6.3-3-1-5.2-3.3-5.2-6.3V3.8z" />
+    <path d="m5.6 8 1.8 1.8L10.6 6.3" />
+  </svg>
+);
+
 export function ObjectTypeIcon({ type, size = 14 }: { type: SceneObjectType; size?: number }) {
   switch (type) {
     case 'box':
@@ -190,6 +259,10 @@ export function ObjectTypeIcon({ type, size = 14 }: { type: SceneObjectType; siz
       return <IconCamera size={size} />;
     case 'model':
       return <IconModel size={size} />;
+    case 'group':
+      return <IconGroup size={size} />;
+    case 'element':
+      return <IconElement size={size} />;
   }
 }
 
@@ -199,4 +272,6 @@ export const TYPE_LABEL: Record<SceneObjectType, string> = {
   light: 'Lumière ponctuelle',
   camera: 'Caméra',
   model: 'Modèle 3D',
+  group: 'Groupe',
+  element: 'Élément paramétrique',
 };

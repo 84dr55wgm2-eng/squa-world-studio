@@ -1,4 +1,4 @@
-# Architecture — SQUA World Studio (Phase 1 : noyau · Phase 2 : assets)
+# Architecture — SQUA World Studio (Phase 1 : noyau · Phase 2 : assets · Phase 3 : composition du monde)
 
 ## Principe
 
@@ -17,12 +17,14 @@
  │  locks : vérification du verrouillage       │
  │  operations : application + inverse exact   │
  │  history : undo / redo / fusion             │
- │  serialization : format .squa.json          │
+ │  serialization : format .squa (schéma v3)   │
+ │  spatial · placement · validation           │
+ │  worldCommands : API JSON (future IA)       │
  └─────────────────────────────────────────────┘
 ```
 
 **Toute modification de la scène est une `Transaction`** : une liste d'opérations JSON (`insert`, `delete`, `update`,
-`settings`, `project`). Qu'elle vienne d'un clic, d'un raccourci ou — plus tard — de l'IA, elle suit le même chemin :
+`move` (changement de parent), `settings`, `project`, `asset`, `docMetadata`). Qu'elle vienne d'un clic, d'un raccourci ou — plus tard — de l'IA, elle suit le même chemin :
 
 1. une commande (`core/commands.ts`) construit la transaction à partir de l'état courant ;
 2. `executeTransaction` (`core/locks.ts`) vérifie chaque opération (verrous, existence, type) puis l'applique — tout ou rien ;
@@ -53,6 +55,15 @@ src/
     serialization.ts    sauvegarde / chargement / validation / migrations
     __tests__/          tests unitaires (node:test)
     bounds.ts           boîtes englobantes, pivot, dimensions, pose au sol (calcul pur)
+    math.ts             matrices 4×4, transforms monde ↔ local à travers la hiérarchie
+    semantics.ts        rôles sémantiques et leurs règles de placement
+    elements.ts         éléments paramétriques (murs, sols, portes, fenêtres, routes…) : dimensions, paramètres
+    spatial.ts          boîtes locales/monde de tout objet (groupes compris), empreintes, chevauchements
+    placement.ts        moteur de relations (ON, INSIDE, NEXT_TO, AGAINST, CENTERED_IN, FACING, ATTACHED_TO, ALONG), aimantation
+    validation.ts       validatePlacement (OK / WARNING / INVALID) et validateScene
+    hierarchy.ts        grouper, dégrouper, reparenter, actions sur plusieurs objets, matériaux, placement
+    worldCommands.ts    API de commandes JSON → une transaction (docs/WORLD_COMMANDS.md)
+    templates.ts        modèles de scène et prefabs intégrés (scripts de commandes)
   assets/               pipeline de modèles 3D (voir docs/ASSETS.md)
     manifest.ts         format du manifest de bibliothèque + filtres (pur, testé)
     categories.ts       taxonomie de la bibliothèque
@@ -62,18 +73,23 @@ src/
     assetStatus.ts      état de chargement par asset (non sauvegardé)
     assetActions.ts     ajout à la scène (placement au sol), import fichier / URL
     fileStore.ts        fichiers importés : mémoire + IndexedDB, empreinte SHA-256, base64
+  world/                lien entre le cœur et l'application
+    worldContext.ts     boîtes mesurées, bibliothèque, prefabs → contexte du moteur de placement
+    worldActions.ts     commandes, modèles, prefabs, aimantation aux surfaces, matériaux
+    prefabStore.ts      prefabs de l'utilisateur (navigateur)
   store/
-    editorStore.ts      état global (document, historique, sélection, outil, notifications)
+    editorStore.ts      état global (document, historique, sélection multiple, aimantation, notifications)
   viewport/
     Viewport.tsx        Canvas R3F, environnement, grille, OrbitControls, repère d'axes
-    objects/            rendu d'un objet (ObjectNode), visuel des caméras, instance de modèle (ModelContent)
-    TransformGizmo.tsx  gizmo + validation d'un geste = une transaction
+    objects/            rendu d'un objet (ObjectNode), caméras, modèles (ModelContent), éléments (ElementContent,
+                        elementGeometry : géométries fusionnées et partagées, murs percés par leurs ouvertures)
+    TransformGizmo.tsx  gizmo (un ou plusieurs objets, grille, angles, aimantation) — un geste = une transaction
     cameraController.ts caméra de travail : vue par défaut, cadrage, vue caméra
     objectRegistry.ts   id → Object3D (sans stocker Three.js dans le store)
     interactionGuard.ts évite les conflits gizmo / clic de sélection
     sharedResources.ts  géométries partagées (une seule instance GPU par forme)
   editor/               interface : barre supérieure, panneaux, champs, raccourcis
-  io/                   fichiers .squa.json, sauvegarde automatique locale
+  io/                   fichiers .squa, sauvegarde automatique locale
   app/App.tsx           mise en page uniquement
 ```
 
@@ -105,14 +121,32 @@ src/
 - **Rendu** : ombres du soleil (une seule lumière avec ombres, carte 2048), sol récepteur d'ombres invisible, et
   éclairage d'environnement neutre généré localement (RoomEnvironment), sans fichier HDR à télécharger.
 
+## Composition du monde (Phase 3)
+
+- **Graphe sémantique** : chaque objet porte un `semanticRole` (mur, porte, mobilier, véhicule…), une catégorie, des tags,
+  une provenance et, s'il a été placé par relation, la relation elle-même. Les règles de chaque rôle (appui attendu,
+  chevauchements normaux) sont dans `core/semantics.ts`, pas dans l'interface.
+- **Groupes** : type `group`. Changer de parent conserve la position à l'écran (`reparentOps` recalcule le transform local
+  via les matrices monde). Verrou et visibilité sont hérités. Clic dans la vue : le groupe d'abord, puis un niveau plus
+  profond à chaque clic.
+- **Boîtes fiables** : `core/spatial.ts` calcule la boîte de n'importe quel objet (élément : dimensions ; modèle : boîte
+  du fichier, mesurée hors ligne dans le manifest puis au chargement ; groupe : union des enfants) en monde, orientée
+  (lacet) et alignée. Largeur / hauteur / profondeur / centre / base / sommet en découlent. Aucune constante arbitraire.
+- **Placement** : `core/placement.ts` résout 8 relations à partir de ces boîtes (projections exactes des boîtes
+  orientées). `NEXT_TO` en mode automatique essaie les quatre côtés et garde le premier sans collision.
+- **Validation** : chevauchement mesuré en volume (empreintes orientées découpées par Sutherland–Hodgman × intervalle
+  vertical) ; < 5 % ignoré (contact), 5–50 % WARNING, > 50 % ou imbrication INVALID ; exceptions par rôle.
+- **Commandes** : `core/worldCommands.ts` (voir docs/WORLD_COMMANDS.md). Les modèles de scène et prefabs intégrés sont des
+  scripts de commandes, exécutés par le même moteur : aucune scène n'est codée en dur.
+- **Éléments paramétriques** : géométrie générée (boîtes et cylindres fusionnés en une géométrie par matériau),
+  partagée entre éléments identiques, libérée quand plus personne ne l'utilise.
+- **Sélection multiple** : `selectedIds` + sélection principale ; le gizmo agit sur un pivot au centre et applique la même
+  transformation monde à chaque objet ; un seul undo.
+
 ## Points d'extension préparés (non implémentés)
 
-- **Recherche, favoris, tags, filtres** : `filterAssets()` (manifest.ts) filtre déjà par catégorie, texte et tags ;
-  il manque l'interface.
+- **Prompt-to-World** : un générateur produira des `WorldCommand[]`, exécutera `runWorldCommands`, lira `validateScene`
+  et corrigera ; rien à changer dans le rendu.
 - **Grandes bibliothèques** : plusieurs manifests (ou un manifest distant) peuvent être fusionnés dans `library.ts`.
-- **Instancing GPU** (milliers d'arbres, de chaises…) : `ModelContent` est le seul endroit à adapter.
-- **Groupes** : le cœur gère déjà `parentId`/`children` ; il manque l'UI (créer un groupe, glisser-déposer dans la hiérarchie)
-  et la conversion de transform lors d'un changement de parent.
-- **Caméra** : `cameraController.ts` centralise la caméra de travail (FPS, focale, profondeur de champ, trajectoires viendront ici) ;
-  les objets `camera` stockent déjà `fov`, `near`, `far`.
-- **Multi-sélection** : `selectedId` est unique aujourd'hui ; passer à une liste touchera le store, le gizmo et les panneaux.
+- **Instancing GPU** (milliers d'arbres, de chaises…) : `ModelContent` / `ElementContent` sont les seuls endroits à adapter.
+- **Caméra** : `cameraController.ts` centralise la caméra de travail (FPS, focale, trajectoires viendront ici).

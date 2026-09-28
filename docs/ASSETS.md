@@ -16,10 +16,19 @@
   "tags": ["table", "mobilier", "intérieur"],
   "defaultScale": 1,
   "pivot": "bottom-center",
+  "defaultRotation": [0, 0, 0],
+  "semanticRole": "furniture",
+  "bounds": { "min": [-0.8, 0, -0.45], "max": [0.8, 0.75, 0.45] },
+  "stats": { "meshes": 3, "triangles": 12000, "materials": 2, "textures": 4, "fileSize": 850000 },
   "license": { "spdx": "CC0-1.0", "author": "Nom de l'auteur", "sourceUrl": "https://…" },
   "metadata": {}
 }
 ```
+
+`bounds` et `stats` se calculent sans navigateur : `python3 scripts/measure-glb.py public/assets/library/wooden-table/table.glb`.
+Avec `bounds`, le moteur de placement connaît la taille du modèle **avant** de le télécharger (modèles de scène, commandes).
+Pour alléger un fichier lourd sans toucher à la géométrie : `python3 scripts/optimize-glb.py entree.glb sortie.glb --max 1024`
+(textures réduites et ré-encodées).
 
 4. Déployez (ou rechargez la page). La carte apparaît dans la bonne catégorie. Une catégorie vide reste masquée.
 
@@ -35,11 +44,26 @@
 | `pivot` | non (`bottom-center`) | `bottom-center`, `center` ou `original` |
 | `unitScale` | non (1) | 0.01 si le fichier est en centimètres, etc. |
 | `orientation` | non (`[0,0,0]`) | correction en degrés, ex. `[-90, 0, 0]` pour un modèle « Z vers le haut » |
+| `defaultRotation` | non (`[0,0,0]`) | rotation (degrés) à l'insertion |
+| `semanticRole` | recommandé | rôle des instances (`furniture`, `vehicle`, `vegetation`…) : placement et validation |
+| `bounds` | recommandé | boîte du fichier (unités du fichier) — voir `scripts/measure-glb.py` |
+| `stats` | non | maillages, triangles, matériaux, textures, taille — affichés dans l'inspecteur avant chargement |
 | `license` | recommandé | `spdx`, `author`, `sourceUrl`. Sans licence, un avertissement apparaît dans la console. |
 
-**Catégories** : `primitives`, `architecture.buildings`, `architecture.walls`, `architecture.doors`,
-`architecture.windows`, `props.furniture`, `props.electronics`, `props.objects`, `nature.trees`,
-`nature.plants`, `vehicles`, `characters`, `lights`, `cameras` (liste dans `src/assets/categories.ts`).
+**Catégories** : `primitives`, `architecture.buildings|floors|walls|doors|windows|stairs`,
+`urban.roads|sidewalks|lighting|barriers`, `props.furniture|electronics|objects`, `nature.trees|plants`, `vehicles`,
+`characters`, `lights`, `prefabs`, `cameras` (liste dans `src/assets/categories.ts`).
+
+## Contenu actuel
+
+- **16 modèles GLB** (Khronos glTF-Sample-Assets, CC0 / CC-BY 4.0 — détail et auteurs dans
+  `public/assets/library/CREDITS.md`) : 3 chaises / sièges, 2 canapés, pouf, réfrigérateur vitré, radio, gourde,
+  applique, lanterne sur potence, plante en pot, vase de fleurs, fenêtre à vitre brisée, voiture concept, camion, personnage.
+- **16 éléments paramétriques** générés par l'éditeur (dimensions réelles modifiables) : dalle de sol, mur, porte,
+  fenêtre, escalier, route, trottoir, volume de bâtiment, table, bureau, étagère, carton, écran, unité centrale,
+  lampadaire, glissière béton. Ce sont des volumes d'étude propres, pas des modèles détaillés.
+- **4 prefabs intégrés** : Poste de bureau, Poste de cybercafé, Coin salon, Coin de rue ; plus les prefabs de l'utilisateur.
+- **Manque connu** : aucun arbre réaliste sous licence libre trouvé dans les sources accessibles ; pas de lit.
 
 Une entrée invalide (id dupliqué, extension inconnue…) est ignorée avec un avertissement : elle ne bloque
 jamais le reste de la bibliothèque.
@@ -49,7 +73,7 @@ N'intégrez que des modèles dont la licence est vérifiée (CC0 ou CC-BY de pr�
 
 ## Les trois sources d'un modèle
 
-| Source | Exemple | Où sont les octets | Dans le `.squa.json` |
+| Source | Exemple | Où sont les octets | Dans le `.squa` |
 |---|---|---|---|
 | `library` | carte de la bibliothèque | `public/assets/library/…` (servi par le site) | l'id et le chemin (`modelUrl`) |
 | `url` | « Depuis une URL » | le serveur distant | l'URL |
@@ -66,8 +90,14 @@ N'intégrez que des modèles dont la licence est vérifiée (CC0 ou CC-BY de pr�
 - Les matériaux du fichier sont conservés tels quels (couleur, normal, rugosité, métal, émissif, et extensions
   PBR comme sheen ou transmission). Un éclairage d'environnement neutre, généré localement, leur donne des reflets.
 
-## Formats non pris en charge (message clair à l'import)
+## Import robuste
 
-- Compression Draco (`KHR_draco_mesh_compression`) et textures KTX2/Basis : il faudrait héberger les
-  décodeurs. Ce sera ajouté quand la bibliothèque en aura besoin.
-- Les autres formats (FBX, OBJ, USDZ) : il faut d'abord les convertir en GLB (Blender, par exemple).
+- **Draco** (`KHR_draco_mesh_compression`) : décodeur Google (Apache-2.0) servi depuis `public/decoders/draco/`,
+  chargé seulement quand un fichier en a besoin.
+- **Meshopt** : pris en charge.
+- **Texture manquante** (un .gltf importé sans ses images) : le modèle s'affiche quand même, l'inspecteur indique
+  « Chargé (incomplet) » et le nom des fichiers manquants.
+- **Fichier trop lourd** : refus au-delà de 200 Mo (vérifié avant téléchargement quand le serveur donne la taille).
+- **Chargement annulé** : si l'objet est supprimé (ou l'ajout annulé) pendant le téléchargement, la requête est interrompue.
+- **Réseau / CORS / 404 / fichier corrompu** : état « error » avec un message clair ; l'objet reste sélectionnable.
+- **Non pris en charge** : textures KTX2/Basis (message clair) ; formats FBX, OBJ, USDZ (convertir en GLB).

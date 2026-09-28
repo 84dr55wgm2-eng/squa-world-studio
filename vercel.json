@@ -7,7 +7,7 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!assets/|_app/).*)",
+      "source": "/((?!assets/|_app/|decoders/).*)",
       "destination": "/index.html"
     }
   ],
@@ -27,6 +27,15 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=86400, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/decoders/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800"
         }
       ]
     },

@@ -9,9 +9,9 @@
  *
  * Point d'extension prévu : caméra libre FPS, focale, trajectoires, plans.
  */
-import { Box3, Euler, MathUtils, Matrix4, PerspectiveCamera, Plane, Quaternion, Raycaster, Vector2, Vector3 } from 'three';
+import { Box3, Euler, MathUtils, Matrix4, PerspectiveCamera, Plane, Quaternion, Raycaster, Vector2, Vector3, type Object3D } from 'three';
 import type { ObjectId, Transform, Vec3 } from '../core/index.ts';
-import { setLookThrough } from '../store/editorStore.ts';
+import { setLookThrough, useEditor } from '../store/editorStore.ts';
 import { getObject3D } from './objectRegistry.ts';
 
 /** Sous-ensemble des OrbitControls utilisé ici (évite de dépendre du type interne de Drei). */
@@ -25,6 +25,7 @@ export interface OrbitLike {
 
 interface Bridge {
   camera: PerspectiveCamera;
+  scene?: Object3D;
   controls: OrbitLike;
   invalidate: () => void;
   domElement: HTMLElement;
@@ -81,16 +82,26 @@ export function getViewTargetOnGround(): Vec3 | undefined {
 
 /** Cadre l'objet dans la vue en conservant l'angle de vue actuel. */
 export function frameObject(id: ObjectId): void {
+  frameObjects([id]);
+}
+
+/** Cadre la sélection courante (un ou plusieurs objets). */
+export function frameSelection(): void {
+  frameObjects(useEditor.getState().selectedIds);
+}
+
+export function frameObjects(ids: ObjectId[]): void {
   const b = bridge;
-  const object = getObject3D(id);
-  if (!b || !object) return;
+  const objects = ids.map((id) => getObject3D(id)).filter((o): o is NonNullable<typeof o> => !!o);
+  if (!b || !objects.length) return;
   stopInertia(b);
   setLookThrough(null);
-  const box = new Box3().setFromObject(object);
+  const box = new Box3();
+  for (const o of objects) box.expandByObject(o);
   const center = new Vector3();
   let radius = 0.5;
   if (box.isEmpty()) {
-    object.getWorldPosition(center);
+    objects[0].getWorldPosition(center);
   } else {
     box.getCenter(center);
     radius = Math.max(box.getSize(new Vector3()).length() / 2, 0.25);
@@ -167,7 +178,31 @@ export function groundPointAtClient(clientX: number, clientY: number): Vec3 | un
   const ndc = new Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
   const ray = new Raycaster();
   ray.setFromCamera(ndc, b.camera);
+  // D'abord les objets de la scène (déposer sur une table vise la table, pas le sol derrière).
+  if (b.scene) {
+    for (const h of ray.intersectObject(b.scene, true)) {
+      if (h.distance > MAX_DROP_DISTANCE) break;
+      let o: Object3D | null = h.object;
+      while (o && o.userData.squaId === undefined) o = o.parent;
+      if (o && h.object.visible) return [Math.round(h.point.x * 100) / 100, Math.max(0, Math.round(h.point.y * 100) / 100), Math.round(h.point.z * 100) / 100];
+    }
+  }
   const hit = new Vector3();
   if (!ray.ray.intersectPlane(GROUND, hit) || hit.distanceTo(b.camera.position) > MAX_DROP_DISTANCE) return getViewTargetOnGround();
   return [Math.round(hit.x * 100) / 100, 0, Math.round(hit.z * 100) / 100];
+}
+
+/** Position à l'écran (pixels, relatifs à la page) d'un point 3D du monde. */
+export function projectToScreen(p: Vec3): { x: number; y: number } | undefined {
+  const b = bridge;
+  if (!b) return undefined;
+  b.camera.updateMatrixWorld();
+  const v = new Vector3(...p).project(b.camera);
+  const rect = b.domElement.getBoundingClientRect();
+  return { x: rect.left + ((v.x + 1) / 2) * rect.width, y: rect.top + ((1 - v.y) / 2) * rect.height };
+}
+
+/** Force un rendu (utilisé par la mesure d'images par seconde en mode diagnostic). */
+export function invalidateView(): void {
+  bridge?.invalidate();
 }

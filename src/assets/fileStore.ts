@@ -4,7 +4,7 @@
  * - En mémoire pendant la session.
  * - Dans IndexedDB pour survivre à un rechargement de page (la sauvegarde automatique
  *   de la scène ne contient que les empreintes, pas les octets).
- * - Intégrés en base64 dans le .squa.json lors d'un « Enregistrer » (scène transportable).
+ * - Intégrés en base64 dans le .squa lors d'un « Enregistrer » (scène transportable).
  *
  * Les fichiers sont indexés par l'empreinte SHA-256 de leur contenu : importer deux fois
  * le même fichier ne le stocke qu'une fois.

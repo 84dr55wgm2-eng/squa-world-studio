@@ -5,7 +5,7 @@ import { resetView } from '../viewport/cameraController.ts';
 import { askConfirm } from '../editor/ConfirmDialog.tsx';
 import { base64ToBlob, putFile } from '../assets/fileStore.ts';
 
-async function confirmDiscard(): Promise<boolean> {
+export async function confirmDiscardChanges(): Promise<boolean> {
   if (!selectIsDirty(useEditor.getState())) return true;
   return askConfirm('La scène contient des modifications non enregistrées. Elles seront perdues. Continuer ?', 'Continuer sans enregistrer');
 }
@@ -24,7 +24,7 @@ export async function saveProject(): Promise<void> {
 }
 
 export async function openProject(): Promise<void> {
-  if (!(await confirmDiscard())) return;
+  if (!(await confirmDiscardChanges())) return;
   const picked = await pickSceneFile();
   if (!picked) return;
   if (!picked.result.ok) {
@@ -46,7 +46,7 @@ export async function openProject(): Promise<void> {
 }
 
 export async function createNewProject(): Promise<void> {
-  if (!(await confirmDiscard())) return;
+  if (!(await confirmDiscardChanges())) return;
   newScene();
   resetView();
 }

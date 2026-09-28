@@ -1,76 +1,42 @@
-# Format de scène SQUA World Studio — `.squa.json` (v2)
+# Format de scène SQUA World Studio — `.squa` (schéma v3)
 
-Ce format est le format interne de SQUA World Studio. Il est conçu pour être :
+Un fichier `.squa` est un document **JSON UTF-8**. Il est conçu pour être :
 
-- **lisible** par un humain et par une IA (JSON indenté, angles en degrés, couleurs hexadécimales) ;
-- **stable** : un en-tête `format` + `version` permet des migrations futures (`migrate()` dans `src/core/serialization.ts`) ;
+- **lisible** par un humain et par une IA (JSON indenté, angles en degrés, couleurs hexadécimales, rôles sémantiques explicites) ;
+- **stable et migrable** : `format` + `schemaVersion` ; `migrate()` (`src/core/serialization.ts`) convertit les anciennes versions ;
 - **validé** au chargement : un fichier incohérent est refusé avec un message clair, jamais chargé à moitié.
 
-## Exemple
+Les fichiers `.squa.json` des versions précédentes (v1, v2) s'ouvrent toujours et sont convertis automatiquement.
+
+## Structure
 
 ```json
 {
   "format": "squa-world-studio/scene",
-  "version": 2,
-  "savedAt": "2026-09-27T20:15:00.000Z",
-  "project": { "name": "Cybercafé Lagos", "createdAt": "…", "updatedAt": "…" },
-  "settings": { "background": "#1c1e23", "ambientIntensity": 0.5, "sunIntensity": 1.5, "environmentIntensity": 0.6, "shadows": true, "gridVisible": true },
-  "rootIds": ["obj_a1b2c3d4e5f6", "obj_k3x9f0q2m7ab"],
-  "objects": [
-    {
-      "id": "obj_a1b2c3d4e5f6",
-      "name": "Comptoir",
-      "type": "box",
-      "parentId": null,
-      "children": [],
-      "transform": { "position": [-2, 0.5, 0], "rotation": [0, 45, 0], "scale": [3, 1, 1] },
-      "visible": true,
-      "locked": true,
-      "tags": ["mobilier"],
-      "metadata": {},
-      "material": { "color": "#8a5a3c" }
-    },
-    {
-      "id": "obj_k3x9f0q2m7ab",
-      "name": "Caméra",
-      "type": "camera",
-      "parentId": null,
-      "children": [],
-      "transform": { "position": [0, 1.6, 7], "rotation": [0, 0, 0], "scale": [1, 1, 1] },
-      "visible": true,
-      "locked": false,
-      "tags": [],
-      "metadata": {},
-      "camera": { "fov": 35, "near": 0.1, "far": 1000 }
-    },
-    {
-      "id": "obj_7h2k9d0s1a3q",
-      "name": "Chaise damassée",
-      "type": "model",
-      "parentId": null,
-      "children": [],
-      "transform": { "position": [1, 0, -2], "rotation": [0, 90, 0], "scale": [1, 1, 1] },
-      "visible": true,
-      "locked": false,
-      "tags": [],
-      "metadata": {},
-      "model": { "assetId": "lib:chair-damask", "pivot": "bottom-center", "orientation": [0, 0, 0], "unitScale": 1, "castShadow": true, "receiveShadow": true }
-    }
-  ],
-  "assets": [
-    {
-      "id": "lib:chair-damask",
-      "name": "Chaise damassée",
-      "category": "props.furniture",
-      "source": { "kind": "library", "libraryId": "chair-damask", "modelUrl": "assets/library/chair-damask/ChairDamaskPurplegold.glb" },
-      "license": { "spdx": "CC-BY-4.0", "author": "Eric Chadwick", "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/ChairDamaskPurplegold" }
-    }
-  ],
-  "files": {}
+  "schemaVersion": 3,
+  "savedAt": "2026-09-28T09:00:00.000Z",
+  "project": { "name": "Pièce intérieure", "createdAt": "…", "updatedAt": "…" },
+  "environment": { "background": "#1c1e23", "ambientIntensity": 0.5, "sunIntensity": 1.5, "environmentIntensity": 0.6, "shadows": true, "gridVisible": true },
+  "rootIds": ["obj_room…", "obj_desk…"],
+  "objects": [ … ],
+  "assets": [ … ],
+  "groups": ["obj_room…", "obj_desk…"],
+  "cameras": ["obj_cam…"],
+  "metadata": { "template": "interior-room" },
+  "files": { }
 }
 ```
 
-(`rootIds` liste les trois objets ; l'exemple est abrégé.)
+| Clé | Contenu |
+|---|---|
+| `project` | nom, dates de création / modification |
+| `environment` | fond, lumière ambiante, soleil, reflets, ombres, grille (s'appelait `settings` en v1/v2) |
+| `rootIds` | ordre des objets racine |
+| `objects` | tous les objets, dans l'ordre de parcours (parent avant enfants) — le **graphe de scène** |
+| `assets` | table des assets utilisés (séparée des objets : une instance référence un asset par `assetId`) |
+| `groups`, `cameras` | index de lecture (identifiants des groupes et des caméras), recalculés à chaque enregistrement |
+| `metadata` | libre (ex. modèle d'origine, futur prompt d'une génération IA) |
+| `files` | contenu base64 des modèles importés depuis l'ordinateur (scène autonome) |
 
 ## Conventions
 
@@ -79,46 +45,54 @@ Ce format est le format interne de SQUA World Studio. Il est conçu pour être :
 | Unités | 1 unité = 1 mètre, axe **Y vers le haut** |
 | `transform.rotation` | angles d'Euler en **degrés**, ordre **XYZ** |
 | `transform.position` | relative au parent (`parentId`), ou au monde si `parentId` est `null` |
+| Face avant d'un objet | **+Z local** (un objet « tourné vers » X a le lacet qui amène +Z vers X) |
 | Couleurs | `"#rrggbb"` |
 | `id` | unique, stable, jamais réutilisé (`obj_` + 12 caractères) |
 
-## Champs communs à tous les objets
+## Objet (nœud du graphe sémantique)
 
 | Champ | Type | Rôle |
 |---|---|---|
-| `id` | string | identifiant unique |
-| `name` | string | nom affiché |
-| `type` | `"box"` \| `"sphere"` \| `"light"` \| `"camera"` \| `"model"` | nature de l'objet |
-| `parentId` | string \| null | parent dans la hiérarchie |
-| `children` | string[] | ordre des enfants |
-| `transform` | `{ position, rotation, scale }` | voir conventions |
-| `visible` | boolean | affiché ou masqué |
-| `locked` | boolean | verrouillé : ni transformation, ni modification, ni suppression (s'applique aussi aux descendants) |
-| `tags` | string[] | libre (catégorisation future, IA) |
-| `metadata` | object | libre et sérialisable (ex. futur `metadata.ai`) |
+| `id`, `name` | string | identifiant, nom affiché |
+| `type` | `box` \| `sphere` \| `light` \| `camera` \| `model` \| `element` \| `group` | nature technique |
+| `semanticRole` | voir ci-dessous | **ce que l'objet est dans le monde** (utilisé par le placement et la validation) |
+| `category` | string (optionnel) | catégorie de bibliothèque, ex. `props.furniture` |
+| `tags` | string[] | libres |
+| `parentId`, `children` | hiérarchie | un parent déplace / masque / verrouille / duplique / supprime ses enfants |
+| `transform` | `{ position, rotation, scale }` | local au parent |
+| `visible`, `locked` | boolean | hérités par les descendants |
+| `placement` | `{ support?, allowFloating?, allowOverlapWith? }` (optionnel) | surcharge des règles du rôle |
+| `relation` | `{ type, targetId, params? }` (optionnel) | dernière relation spatiale appliquée (ex. `ATTACHED_TO` un mur) |
+| `source` | `{ kind: user\|template\|prefab\|composer\|import\|ai, ref? }` (optionnel) | provenance |
+| `metadata` | object | libre |
+
+Rôles (`semanticRole`) : `building`, `wall`, `floor`, `ceiling`, `door`, `window`, `stairs`, `road`, `sidewalk`, `barrier`,
+`furniture`, `vehicle`, `vegetation`, `prop`, `electronics`, `light`, `camera`, `character`, `room`, `group`.
+Chaque rôle a des règles par défaut (`src/core/semantics.ts`) : appui attendu (sol, surface, mur, aucun), droit de flotter,
+rôles avec lesquels un chevauchement est normal (une porte dans un mur, une voiture sur une route…).
 
 ## Champs spécifiques
 
 | Type | Champ | Contenu |
 |---|---|---|
-| `box`, `sphere` | `material` | `{ color }` — cube de 1 m, sphère de 1 m de diamètre, dimensionnés par `scale` |
+| `box`, `sphere` | `material` | `{ color, roughness, metalness, opacity }` — cube de 1 m / sphère de 1 m de diamètre, dimensionnés par `scale` |
+| `element` | `element` | `{ shape, size: [largeur, hauteur, profondeur] (m), params, material }` — élément paramétrique, pivot au centre de la base |
+| `group` | — | conteneur (sa boîte = union de ses enfants) |
 | `light` | `light` | `{ kind: "point", color, intensity (candela), distance (0 = infinie) }` |
 | `camera` | `camera` | `{ fov (degrés, vertical), near, far }` — regarde vers −Z local |
-| `model` | `model` | `{ assetId, pivot, orientation, unitScale, castShadow, receiveShadow }` — voir ci-dessous |
+| `model` | `model` | `{ assetId, pivot, orientation, unitScale, castShadow, receiveShadow, materialOverride? }` |
 
-## Modèles 3D (depuis la v2)
+Formes d'éléments (`element.shape`) : `slab`, `wall`, `door`, `window`, `stairs`, `road`, `sidewalk`, `building`, `table`,
+`desk`, `shelf`, `box`, `monitor`, `computer`, `streetlight`, `barrier` (paramètres : `src/core/elements.ts`).
+Une porte ou une fenêtre **enfant** d'un mur perce ce mur (ouverture calculée à l'affichage).
 
-Un objet `model` est une **instance** : il référence une entrée de la table `assets` par `assetId`.
-Plusieurs instances partagent le même asset (chargé une seule fois).
+`model.materialOverride` : `{ color?, roughness?, metalness?, opacity? }` appliqué à cette instance uniquement ;
+absent = matériaux d'origine du fichier glTF, conservés tels quels.
 
-| Champ de `model` | Rôle (non destructif : le fichier d'origine n'est jamais modifié) |
-|---|---|
-| `pivot` | `bottom-center` (centre bas de la boîte englobante), `center`, ou `original` (celui du fichier) |
-| `orientation` | correction en degrés appliquée au fichier, ex. `[-90, 0, 0]` pour un export « Z vers le haut » |
-| `unitScale` | conversion vers le mètre : 1 (m), 0.01 (cm), 0.001 (mm), 0.0254 (pouce) |
-| `castShadow` / `receiveShadow` | ombres |
+## Table `assets`
 
-Table `assets` — chaque entrée : `id`, `name`, `category` (optionnel), `license` (optionnel), et une `source` :
+`id`, `name`, `category?`, `license?` (`spdx`, `author`, `sourceUrl?`), `bounds?` (boîte du fichier, unités du fichier),
+`semanticRole?`, et une `source` :
 
 | `source.kind` | Champs | Rechargement |
 |---|---|---|
@@ -126,33 +100,17 @@ Table `assets` — chaque entrée : `id`, `name`, `category` (optionnel), `licen
 | `url` | `url` (https, CORS autorisé) | depuis le serveur distant |
 | `file` | `mainFile`, `files: [{ name, hash, size }]` | depuis `files` (intégré au fichier) ou le stockage du navigateur |
 
-`files` contient, pour chaque empreinte SHA-256, `{ name, size, data }` (contenu en base64) : une scène avec
-des modèles importés reste **autonome** et se rouvre sur n'importe quel appareil. La sauvegarde automatique
-du navigateur n'intègre pas ces octets (ils restent dans IndexedDB).
-
-Seuls les assets utilisés par au moins un objet sont écrits. Un objet `model` dont l'asset est absent du
-fichier fait refuser le chargement. Un asset présent mais **inaccessible** (fichier supprimé du site,
-serveur distant hors ligne) est chargé quand même : l'objet reste sélectionnable, modifiable et supprimable,
-et affiche « Impossible de charger cet asset. ».
-
-## Hiérarchie
-
-`rootIds` donne l'ordre des objets racine ; chaque objet liste ses `children`. `objects` est écrit dans l'ordre de parcours
-(parent avant enfants). Au chargement, on vérifie que `parentId`, `children` et `rootIds` forment un arbre sans cycle et sans
-objet orphelin.
-
-L'interface ne crée pas encore de groupes, mais le cœur (insertion, suppression, duplication, verrouillage hérité) gère déjà
-les enfants et c'est testé.
+Seuls les assets utilisés sont écrits. Un objet `model` dont l'asset est absent du fichier fait refuser le chargement.
+Un asset présent mais inaccessible est chargé quand même : l'objet reste sélectionnable et affiche l'erreur.
 
 ## Règles de chargement
 
 - `format` différent ou JSON invalide → refus.
-- `version` supérieure à la version connue → refus (« créé par une version plus récente »).
-- `version` 1 → migration automatique vers la v2 (table `assets` vide, nouveaux réglages par défaut).
-- Type d'objet inconnu, transform invalide, identifiant dupliqué, hiérarchie incohérente → refus.
-- Champs optionnels manquants (`visible`, `locked`, `tags`, `metadata`, `material`…) → valeur par défaut + avertissement.
+- `schemaVersion` supérieure à la version connue → refus (« créé par une version plus récente »).
+- v1 → v2 (table `assets`), v2 → v3 (`settings` → `environment`, `metadata`, rôles par défaut) : automatique, un seul avertissement.
+- Type ou rôle inconnu, transform invalide, identifiant dupliqué, hiérarchie incohérente (cycle, orphelin) → refus.
+- Champs optionnels manquants → valeur par défaut.
 
 ## Évolutions prévues (non implémentées)
 
-- Type `group` (conteneur), caméras enregistrées / plans (`shots`), timeline d'animation.
-- Chaque ajout passera par une nouvelle `version` et une fonction de migration.
+Plans et séquences de caméra, timeline d'animation, personnages : chacun passera par un nouveau `schemaVersion` et une migration.
