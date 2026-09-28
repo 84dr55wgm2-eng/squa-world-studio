@@ -1,9 +1,9 @@
 {
   "name": "squa-world-studio",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
-  "description": "SQUA World Studio — éditeur web de mondes et de scènes 3D (Phase 2 : modèles 3D et bibliothèque).",
+  "description": "SQUA World Studio — éditeur web de mondes et de scènes 3D (description → monde 3D éditable).",
   "engines": {
     "node": "22.x"
   },

@@ -18,3 +18,5 @@ export * from './validation.ts';
 export * from './hierarchy.ts';
 export * from './worldCommands.ts';
 export * from './templates.ts';
+export * from './scenePlan.ts';
+export * from './composer.ts';

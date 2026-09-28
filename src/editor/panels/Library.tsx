@@ -160,6 +160,8 @@ export function Library() {
   const userPrefabs = usePrefabs((s) => s.user);
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState<string | null>(null);
+  // Sur ordinateur, la bibliothèque est un outil d'appoint : repliée par défaut (la hiérarchie a la place).
+  const [expanded, setExpanded] = useState(false);
 
   const all = useMemo(() => {
     const imported = Object.values(sceneAssets).filter((a) => a.source.kind !== 'library').map(sceneEntry);
@@ -188,10 +190,13 @@ export function Library() {
   const userIds = useMemo(() => new Set(userPrefabs.map((p) => p.id)), [userPrefabs]);
 
   return (
-    <section className="panel-block library-block">
+    <section className={`panel-block library-block ${expanded ? '' : 'is-collapsed'}`}>
       <h2 className="panel-title">
-        Bibliothèque <span className="muted">{all.length}</span>
+        <button type="button" className="collapse-btn" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>
+          <span className="collapse-caret" aria-hidden="true">{expanded ? '▾' : '▸'}</span> Bibliothèque <span className="muted">{all.length}</span>
+        </button>
       </h2>
+      <div className="library-content">
       <ImportControls />
       <label className="search-field">
         <IconSearch />
@@ -220,6 +225,7 @@ export function Library() {
       {libraryStatus === 'loading' && <p className="hint">Chargement de la bibliothèque de modèles…</p>}
       {libraryStatus === 'error' && <p className="hint hint-error">{libraryError}</p>}
       <p className="hint">Cliquez pour ajouter au centre de la vue, ou glissez une carte (ou un fichier .glb) sur la vue. Avec l'aimantation aux surfaces, l'objet se pose sur ce qui est dessous (sol, table…).</p>
+      </div>
     </section>
   );
 }

@@ -1,7 +1,7 @@
 # SQUA World Studio
 
 Éditeur web de mondes et de scènes 3D, pensé pour le storytelling visuel.
-**Version 0.3 : Phase 1 (noyau de l'éditeur) + Phase 2 (modèles 3D et bibliothèque) + Phase 3 (composition du monde).** Pas encore d'IA générative, de personnages animés ni d'animation.
+**Version 0.4 : Prompt → Monde (vertical slice) sur la base des Phases 1–3 (éditeur, bibliothèque, composition du monde).** Pas encore d'image → monde, de personnages animés ni d'animation.
 
 ## Mise en ligne
 
@@ -23,6 +23,17 @@ npm run dev        # ouvre http://localhost:5173
 | `npm run build` | vérification TypeScript complète + build de production (`dist/`) |
 | `npm test` | tests unitaires du cœur (modèle, verrous, undo/redo, format JSON) sans navigateur |
 | `npm run typecheck:core` | vérification TypeScript du cœur seul |
+
+## Créer un monde (Prompt → Monde)
+
+Bouton **Créer un monde** : décrivez un lieu, **Générer le monde** → un monde 3D composé d'objets ordinaires (sélection,
+déplacement, rotation, échelle, renommage, masquage, verrou, duplication, suppression, undo).
+Chaîne : description → modèle de langage (côté serveur) → **ScenePlan** validé → **World Composer** → objets de scène.
+Onglet **Modifier** : consigne locale (« ajoute une fenêtre sur le mur ouest ») → commandes, un seul « Annuler ».
+Onglet **Plan JSON** : composer un plan écrit à la main (sans IA). Détails : [docs/SCENE_PLAN.md](docs/SCENE_PLAN.md).
+
+**Configuration requise** : une seule variable d'environnement serveur sur Vercel, `ANTHROPIC_API_KEY`
+(optionnel : `SQUA_AI_MODEL`, défaut `claude-sonnet-5`). Sans elle, l'interface indique « IA non connectée ».
 
 ## Composition du monde (Phase 3)
 

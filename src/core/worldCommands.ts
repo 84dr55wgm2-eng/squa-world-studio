@@ -15,14 +15,14 @@
 import { createObject, uniqueName } from './factory.ts';
 import { SHAPES, clampSize } from './elements.ts';
 import { createId } from './ids.ts';
-import { compose, localTransformFor } from './math.ts';
+import { compose, localTransformFor, transformPoint, worldMatrix as worldMatrixOf, worldTransform } from './math.ts';
 import { executeTransaction } from './locks.ts';
 import type { Operation, Transaction } from './operations.ts';
 import { changeMaterialTx, deleteManyTx, duplicateManyTx, groupObjectsTx, placeTx, reparentTx, setManyTx, ungroupTx } from './hierarchy.ts';
-import type { RelationSpec, Side } from './placement.ts';
+import { dropToSurface, solvePlacement, type RelationSpec, type Side } from './placement.ts';
 import { getSubtreeIds, SceneError } from './scene.ts';
 import { isSemanticRole } from './semantics.ts';
-import type { BoundsContext } from './spatial.ts';
+import { objectSpatial, type BoundsContext } from './spatial.ts';
 import type {
   AssetRecord,
   ElementShape,
@@ -69,7 +69,7 @@ export type WorldCommand =
   | { action: 'REMOVE_OBJECT'; target: string | string[] }
   | { action: 'TRANSFORM_OBJECT'; target: string; position?: Vec3; rotation?: Vec3; scale?: Vec3; space?: 'local' | 'world' }
   | { action: 'PLACE'; target: string; relation: RelationInput }
-  | { action: 'GROUP_OBJECTS'; targets: string[]; name?: string; as?: string }
+  | { action: 'GROUP_OBJECTS'; targets: string[]; name?: string; as?: string; tags?: string[]; metadata?: Record<string, unknown>; parent?: string }
   | { action: 'UNGROUP_OBJECTS'; target: string }
   | { action: 'REPARENT'; target: string | string[]; parent: string | null }
   | { action: 'DUPLICATE_OBJECT'; target: string | string[]; as?: string; relation?: RelationInput }
@@ -80,7 +80,14 @@ export type WorldCommand =
   | { action: 'SET_PROPERTIES'; target: string; role?: SemanticRole; tags?: string[]; size?: Vec3; params?: Record<string, number> }
   | ({ action: 'CREATE_ROOM' } & RoomSpec)
   | ({ action: 'CREATE_STREET' } & StreetSpec)
-  | ({ action: 'INSTANTIATE_PREFAB'; prefabId: string } & ObjectSpecCommon);
+  | ({ action: 'INSTANTIATE_PREFAB'; prefabId: string } & ObjectSpecCommon)
+  | ({ action: 'SET_ENVIRONMENT' } & EnvironmentSpec)
+  /** Remplace un objet par un autre (asset ou élément) en gardant parent, position, orientation et nom. */
+  | { action: 'REPLACE_OBJECT'; target: string | string[]; assetId?: string; element?: ElementShape; size?: Vec3; material?: MaterialOverride; name?: string }
+  /** Déplacement relatif (by, en mètres, monde) ou absolu (to), et/ou rotation de lacet (yawBy, degrés). */
+  | { action: 'MOVE_OBJECT'; target: string | string[]; by?: Vec3; to?: Vec3; yawBy?: number }
+  /** Redimensionne une pièce créée par CREATE_ROOM : murs, sol, ouvertures et mobilier plaqué sont recalculés. */
+  | { action: 'MODIFY_ROOM'; target: string; width?: number; depth?: number; height?: number };
 
 export type Wall = 'north' | 'south' | 'east' | 'west';
 
@@ -116,6 +123,20 @@ export interface StreetSpec {
   buildings?: boolean;
   /** Espacement des lampadaires (m) ; 0 = aucun. */
   streetLightSpacing?: number;
+  /** Nombre de bâtiments par côté (défaut : la longueur est remplie). */
+  buildingsPerSide?: number;
+  /** Étages minimum et maximum des bâtiments. */
+  floors?: [number, number];
+  /** Profondeur des bâtiments (m). */
+  buildingDepth?: number;
+}
+
+export interface EnvironmentSpec {
+  background?: string;
+  ambientIntensity?: number;
+  sunIntensity?: number;
+  environmentIntensity?: number;
+  shadows?: boolean;
 }
 
 /** Définition d'un prefab : un script de commandes (intégré) ou un instantané d'objets (utilisateur). */
@@ -272,6 +293,11 @@ class Session {
       case 'GROUP_OBJECTS': {
         const { tx, id } = groupObjectsTx(this.doc, this.refs(cmd.targets), this.ctx, cmd.name);
         this.apply(tx);
+        if (cmd.tags || cmd.metadata) {
+          const g = this.doc.objects[id];
+          this.apply({ label: '', ops: [{ type: 'update', id, changes: { ...(cmd.tags ? { tags: cmd.tags.map(String) } : {}), ...(cmd.metadata ? { metadata: { ...g.metadata, ...cmd.metadata } } : {}) } }] });
+        }
+        if (cmd.parent) this.apply(reparentTx(this.doc, [id], this.ref(cmd.parent)));
         this.alias(cmd.as, id);
         this.created.push(id);
         return;
@@ -327,6 +353,14 @@ class Session {
         return this.street(cmd);
       case 'INSTANTIATE_PREFAB':
         return this.prefab(cmd);
+      case 'SET_ENVIRONMENT':
+        return this.environment(cmd);
+      case 'REPLACE_OBJECT':
+        return this.replace(cmd);
+      case 'MOVE_OBJECT':
+        return this.move(cmd);
+      case 'MODIFY_ROOM':
+        return this.modifyRoom(cmd);
       default:
         throw new SceneError(`Action inconnue : ${(cmd as { action: string }).action}.`);
     }
@@ -378,6 +412,180 @@ class Session {
       return this.insert(obj, cmd);
     }
     throw new SceneError('ADD_OBJECT : préciser assetId, element, primitive, light ou camera.');
+  }
+
+  environment(spec: EnvironmentSpec) {
+    const changes: Record<string, unknown> = {};
+    if (spec.background !== undefined) {
+      if (!/^#[0-9a-fA-F]{6}$/.test(spec.background)) throw new SceneError(`Couleur de fond invalide : ${spec.background}.`);
+      changes.background = spec.background.toLowerCase();
+    }
+    for (const k of ['ambientIntensity', 'sunIntensity', 'environmentIntensity'] as const) {
+      const v = spec[k];
+      if (v === undefined) continue;
+      if (!Number.isFinite(v) || v < 0 || v > 20) throw new SceneError(`${k} invalide.`);
+      changes[k] = v;
+    }
+    if (typeof spec.shadows === 'boolean') changes.shadows = spec.shadows;
+    this.apply({ label: '', ops: [{ type: 'settings', changes }] });
+  }
+
+  replace(cmd: Extract<WorldCommand, { action: 'REPLACE_OBJECT' }>) {
+    for (const id of this.refs(cmd.target)) {
+      const old = this.doc.objects[id];
+      if (old.children.length) throw new SceneError(`« ${old.name} » contient d'autres objets : remplacement refusé.`);
+      const common: ObjectSpecCommon = { name: cmd.name ?? old.name, rotation: old.transform.rotation, scale: [1, 1, 1] };
+      let next: SceneObject;
+      let extra: Operation[] = [];
+      if (cmd.assetId) {
+        const asset = this.doc.assets[cmd.assetId] ?? this.ctx.resolveAsset?.(cmd.assetId);
+        if (!asset) throw new SceneError(`Asset inconnu : « ${cmd.assetId} ».`);
+        if (!this.doc.assets[asset.id]) extra = [{ type: 'asset', id: asset.id, record: structuredClone(asset) }];
+        const defaults = this.ctx.assetDefaults?.(asset.id) ?? this.ctx.assetDefaults?.(cmd.assetId);
+        next = createObject('model', { ...this.base(common), semanticRole: asset.semanticRole ?? old.semanticRole, category: asset.category, model: { ...defaults?.model, assetId: asset.id } });
+      } else if (cmd.element) {
+        if (!(cmd.element in SHAPES)) throw new SceneError(`Élément inconnu : « ${cmd.element} ».`);
+        next = createObject('element', { ...this.base(common), element: { shape: cmd.element, size: cmd.size, material: { ...SHAPES[cmd.element].material, ...(validMaterial(cmd.material ?? null) ?? {}) } } });
+      } else throw new SceneError('REPLACE_OBJECT : préciser assetId ou element.');
+      if (cmd.assetId && cmd.material) {
+        const m = validMaterial(cmd.material);
+        if (next.type === 'model' && m) next.model.materialOverride = m;
+      }
+      next.transform.position = [...old.transform.position];
+      next.tags = [...old.tags];
+      const parentId = old.parentId;
+      const index = parentId ? this.doc.objects[parentId].children.indexOf(id) : this.doc.rootIds.indexOf(id);
+      this.apply({ label: '', ops: [{ type: 'delete', id }, ...extra, { type: 'insert', objects: [next], parentId, index }] });
+      // Les alias qui visaient l'ancien objet visent le nouveau.
+      for (const [k, v] of Object.entries(this.aliases)) if (v === id) this.aliases[k] = next.id;
+      this.created.push(next.id);
+      // Re-pose sur ce qui porte l'ancien objet (sa hauteur peut différer).
+      const drop = dropToSurface(this.doc, next.id, this.ctx);
+      if (drop) this.apply({ label: '', ops: [{ type: 'update', id: next.id, changes: { transform: drop.transform } }] });
+    }
+  }
+
+  move(cmd: Extract<WorldCommand, { action: 'MOVE_OBJECT' }>) {
+    for (const id of this.refs(cmd.target)) {
+      const obj = this.doc.objects[id];
+      const world = worldTransform(this.doc, id);
+      const pos: Vec3 = cmd.to ? [...cmd.to] : [...world.position];
+      if (cmd.by) {
+        if (!cmd.by.every(Number.isFinite)) throw new SceneError('MOVE_OBJECT : by invalide.');
+        for (let i = 0; i < 3; i++) pos[i] += cmd.by[i];
+      }
+      if (!pos.every(Number.isFinite)) throw new SceneError('MOVE_OBJECT : position invalide.');
+      const rot: Vec3 = [world.rotation[0], world.rotation[1] + (cmd.yawBy ?? 0), world.rotation[2]];
+      const local = localTransformFor(this.doc, obj.parentId, compose({ position: pos, rotation: rot, scale: world.scale }));
+      this.apply({ label: '', ops: [{ type: 'update', id, changes: { transform: local } }] });
+    }
+  }
+
+  /**
+   * Redimensionne une pièce (groupe de rôle « room » créé par CREATE_ROOM) : sol, murs, ouvertures,
+   * puis re-résout les relations des objets qui s'appuient sur ses murs ou sur la pièce.
+   */
+  modifyRoom(cmd: Extract<WorldCommand, { action: 'MODIFY_ROOM' }>) {
+    const gid = this.ref(cmd.target);
+    const room = this.doc.objects[gid];
+    if (room.semanticRole !== 'room') throw new SceneError(`« ${room.name} » n'est pas une pièce.`);
+    const kids = room.children.map((c) => this.doc.objects[c]);
+    const walls = kids.filter((o): o is Extract<SceneObject, { type: 'element' }> => o.type === 'element' && o.element.shape === 'wall');
+    const floor = kids.find((o): o is Extract<SceneObject, { type: 'element' }> => o.type === 'element' && o.semanticRole === 'floor');
+    if (walls.length !== 4 || !floor) throw new SceneError(`« ${room.name} » n'a pas la structure d'une pièce (sol + 4 murs).`);
+    const t = walls[0].element.size[2];
+    const wallOf = (w: (typeof walls)[number]): Wall => {
+      const r = ((Math.round(w.transform.rotation[1]) % 360) + 360) % 360;
+      return r === 0 ? 'north' : r === 180 ? 'south' : r === 270 ? 'east' : 'west';
+    };
+    const north = walls.find((w) => wallOf(w) === 'north')!;
+    const east = walls.find((w) => wallOf(w) === 'east')!;
+    const oldW = north.element.size[0] - 2 * t, oldD = east.element.size[0], oldH = north.element.size[1];
+    const W = cmd.width ?? oldW, D = cmd.depth ?? oldD, H = cmd.height ?? oldH;
+    for (const [k, v] of Object.entries({ width: W, depth: D, height: H })) if (!Number.isFinite(v) || v < 1.5 || v > 200) throw new SceneError(`MODIFY_ROOM : ${k} invalide.`);
+    const ops: Operation[] = [{ type: 'update', id: floor.id, changes: { element: { ...floor.element, size: [W + 2 * t, floor.element.size[1], D + 2 * t] } } }];
+    const layout: Record<Wall, { pos: Vec3; len: number }> = {
+      north: { pos: [0, 0, -D / 2 - t / 2], len: W + 2 * t },
+      south: { pos: [0, 0, D / 2 + t / 2], len: W + 2 * t },
+      east: { pos: [W / 2 + t / 2, 0, 0], len: D },
+      west: { pos: [-W / 2 - t / 2, 0, 0], len: D },
+    };
+    for (const w of walls) {
+      const L = layout[wallOf(w)];
+      ops.push({ type: 'update', id: w.id, changes: { element: { ...w.element, size: [L.len, H, t] }, transform: { ...w.transform, position: L.pos } } });
+      // Ouvertures : même décalage, borné à la nouvelle longueur du mur.
+      for (const cid of w.children) {
+        const c = this.doc.objects[cid];
+        if (c.type !== 'element') continue;
+        const half = c.element.size[0] / 2;
+        const x = Math.max(-L.len / 2 + half + 0.1, Math.min(L.len / 2 - half - 0.1, c.transform.position[0]));
+        ops.push({ type: 'update', id: cid, changes: { transform: { ...c.transform, position: [x, c.transform.position[1], c.transform.position[2]] } } });
+      }
+    }
+    // Relations encore respectées AVANT le redimensionnement : un objet déplacé depuis (à la main,
+    // par correction automatique) n'est plus lié à sa relation d'origine et ne doit pas y revenir.
+    const wallIdsBefore = new Set(walls.map((w) => w.id));
+    const stillBound = new Set<ObjectId>();
+    for (const o of Object.values(this.doc.objects)) {
+      if (!o.relation || !(wallIdsBefore.has(o.relation.targetId) || o.relation.targetId === gid) || wallIdsBefore.has(o.parentId ?? '')) continue;
+      try {
+        const rel = this.relation({ ...((o.relation.params ?? {}) as object), type: o.relation.type, target: o.relation.targetId } as RelationInput);
+        const sol = solvePlacement(this.doc, o.id, rel, this.ctx);
+        const pw = sol.parentId ? worldMatrixOf(this.doc, sol.parentId) : null;
+        const p = pw ? transformPoint(pw, sol.transform.position) : sol.transform.position;
+        const now = worldTransform(this.doc, o.id).position;
+        if (Math.hypot(p[0] - now[0], p[2] - now[2]) < 0.03) stillBound.add(o.id);
+      } catch {
+        /* relation devenue impossible : objet libre */
+      }
+    }
+    for (const k of kids) if (k.type === 'light') ops.push({ type: 'update', id: k.id, changes: { transform: { ...k.transform, position: [k.transform.position[0] * (W / oldW), H - 0.3, k.transform.position[2] * (D / oldD)] } } });
+    this.apply({ label: '', ops });
+    // Re-résout les relations qui visent un mur ou la pièce (bureau contre un mur, plante dans la pièce…).
+    // Un objet qui fait partie d'une « unité » (groupe de poste : bureau + écran + chaise) déplace toute l'unité.
+    const wallIds = new Set(walls.map((w) => w.id));
+    const dependents = Object.values(this.doc.objects).filter((o) => stillBound.has(o.id));
+    const lenRatio = (wallId: ObjectId): number => {
+      const w = walls.find((x) => x.id === wallId)!;
+      const side = wallOf(w);
+      return side === 'north' || side === 'south' ? W / oldW : D / oldD;
+    };
+    for (const o of dependents) {
+      const params = { ...((o.relation!.params ?? {}) as Record<string, unknown>) };
+      // Les répartitions suivent la nouvelle taille : décalage le long d'un mur, position dans la pièce.
+      if (typeof params.offset === 'number' && wallIds.has(o.relation!.targetId)) params.offset = Math.round(params.offset * lenRatio(o.relation!.targetId) * 1000) / 1000;
+      if (o.relation!.targetId === gid) {
+        if (typeof params.x === 'number') params.x = Math.round(params.x * (W / oldW) * 1000) / 1000;
+        if (typeof params.z === 'number') params.z = Math.round(params.z * (D / oldD) * 1000) / 1000;
+      }
+      const rel = this.relation({ ...(params as object), type: o.relation!.type, target: o.relation!.targetId } as RelationInput);
+      const unit = unitOf(this.doc, o.id);
+      if (unit === o.id) {
+        this.place(o.id, { ...(params as object), type: o.relation!.type, target: o.relation!.targetId } as RelationInput);
+        continue;
+      }
+      const sol = solvePlacement(this.doc, o.id, rel, this.ctx);
+      const before = worldTransform(this.doc, o.id).position;
+      const parentWorld = sol.parentId ? worldMatrixOf(this.doc, sol.parentId) : null;
+      const after = parentWorld ? transformPoint(parentWorld, sol.transform.position) : sol.transform.position;
+      this.move({ action: 'MOVE_OBJECT', target: unit, by: [after[0] - before[0], after[1] - before[1], after[2] - before[2]] });
+    }
+    // Les unités / objets désormais hors de la pièce y sont ramenés.
+    const g = worldTransform(this.doc, gid).position;
+    const inner = { minX: g[0] - W / 2, maxX: g[0] + W / 2, minZ: g[2] - D / 2, maxZ: g[2] + D / 2 };
+    const units = new Set<ObjectId>();
+    for (const id of getSubtreeIds(this.doc, gid)) {
+      const o = this.doc.objects[id];
+      if (id === gid || o.type === 'group' || ['wall', 'floor', 'ceiling', 'light', 'door', 'window'].includes(o.semanticRole) || o.type === 'camera') continue;
+      units.add(unitOf(this.doc, id));
+    }
+    for (const id of units) {
+      const sp = objectSpatial(this.doc, id, this.ctx);
+      if (!sp) continue;
+      const dx = Math.max(0, inner.minX - sp.aabb.min[0]) - Math.max(0, sp.aabb.max[0] - inner.maxX);
+      const dz = Math.max(0, inner.minZ - sp.aabb.min[2]) - Math.max(0, sp.aabb.max[2] - inner.maxZ);
+      if (Math.abs(dx) > 1e-4 || Math.abs(dz) > 1e-4) this.move({ action: 'MOVE_OBJECT', target: id, by: [dx, 0, dz] });
+    }
   }
 
   /** Pièce : groupe contenant sol, 4 murs (face intérieure vers le centre), portes, fenêtres, plafonnier. */
@@ -452,30 +660,47 @@ class Session {
         for (let i = 0; i < n; i++) {
           // Lampadaire au bord de la chaussée, crosse tournée vers la route.
           const lamp = createObject('element', { name: 'Lampadaire', element: { shape: 'streetlight' }, source: src });
-          this.insert(lamp, { parent: gid, relation: { type: 'ALONG', target: swId, t: (i + 0.5) / n, offset: -s * (sw / 2 - 0.4), yaw: s > 0 ? -90 : 90 } });
+          this.insert(lamp, { parent: gid, as: sub(`lamp_${side}_${i + 1}`), relation: { type: 'ALONG', target: swId, t: (i + 0.5) / n, offset: -s * (sw / 2 - 0.4), yaw: s > 0 ? -90 : 90 } });
         }
       }
       if (spec.buildings !== false) {
-        // Volumes réguliers et déterministes (pas d'aléatoire) : largeurs et hauteurs alternées.
-        const widths = [12, 9, 14, 10, 11];
-        const floors = [4, 6, 3, 5, 7];
+        const [fMin, fMax] = spec.floors ?? [3, 7];
+        const depthB = spec.buildingDepth ?? 12;
+        const count = spec.buildingsPerSide;
+        // Largeurs de parcelles déterministes et variées (pas d'aléatoire : même plan → même monde).
+        const pattern = [1.0, 0.8, 1.25, 0.9, 1.1];
+        const lots: number[] = [];
+        if (count && count > 0) {
+          const n = Math.min(40, Math.round(count));
+          const gap = 1.5;
+          const weights = Array.from({ length: n }, (_, i) => pattern[(i + (side === 'left' ? 0 : 2)) % pattern.length]);
+          const sum = weights.reduce((a, b) => a + b, 0);
+          const usable = L - gap * (n - 1);
+          for (const w of weights) lots.push(Math.max(4, (usable * w) / sum));
+        } else {
+          let z = 0;
+          let k = side === 'left' ? 0 : 2;
+          while (z < L - 4) {
+            const w = Math.min(11 * pattern[k % pattern.length], L - z);
+            lots.push(w);
+            z += w;
+            k++;
+          }
+        }
+        const gap = count ? 1.5 : 0;
         let z = -L / 2;
-        let k = side === 'left' ? 0 : 2;
-        while (z < L / 2 - 4) {
-          const w = Math.min(widths[k % widths.length], L / 2 - z);
-          const f = floors[k % floors.length];
-          const d = 12;
+        lots.forEach((w, k) => {
+          const f = fMin + ((k * 3 + (side === 'left' ? 1 : 2)) % (Math.max(1, fMax - fMin + 1)));
           const b = createObject('element', {
             name: 'Bâtiment',
-            position: [s * (rw / 2 + sw + d / 2), 0, z + w / 2],
+            position: [s * (rw / 2 + sw + depthB / 2), 0, z + w / 2],
             rotation: [0, s > 0 ? -90 : 90, 0],
-            element: { shape: 'building', size: [w, f * 3, d], params: { floors: f } },
+            element: { shape: 'building', size: [w, f * 3, depthB], params: { floors: f } },
             source: src,
           });
-          this.insert(b, { parent: gid });
-          z += w;
-          k++;
-        }
+          this.insert(b, { parent: gid, as: sub(`building_${side}_${k + 1}`) });
+          z += w + gap;
+        });
       }
     }
     return gid;
@@ -520,6 +745,20 @@ class Session {
     this.place(gid, cmd.relation);
     return gid;
   }
+}
+
+/**
+ * Unité de placement d'un objet : le plus haut groupe ancêtre marqué `metadata.unit` (ex. « Poste 3 » :
+ * bureau + ordinateur + chaise), ou l'objet lui-même. Déplacer l'unité garde ses éléments cohérents.
+ */
+export function unitOf(doc: SceneDocument, id: ObjectId): ObjectId {
+  let unit = id;
+  let p = doc.objects[id]?.parentId ?? null;
+  while (p && doc.objects[p]) {
+    if (doc.objects[p].metadata?.unit === true) unit = p;
+    p = doc.objects[p].parentId;
+  }
+  return unit;
 }
 
 function isDescendant(all: SceneObject[], obj: SceneObject, ancestor: ObjectId): boolean {

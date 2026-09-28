@@ -8,11 +8,11 @@
  *
  * Repère : pivot au centre de la base, X = largeur, Y = hauteur, Z = profondeur, face avant +Z.
  */
-import { BoxGeometry, BufferGeometry, CylinderGeometry, MeshStandardMaterial } from 'three';
+import { BoxGeometry, BufferGeometry, CylinderGeometry, MeshStandardMaterial, SphereGeometry } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { ElementProps } from '../../core/index.ts';
 
-export type PartKind = 'main' | 'trim' | 'glass' | 'facade' | 'marking' | 'lamp' | 'screen' | 'dark' | 'metal';
+export type PartKind = 'main' | 'trim' | 'glass' | 'facade' | 'marking' | 'lamp' | 'screen' | 'dark' | 'metal' | 'bark' | 'fabric';
 
 export interface Opening {
   x0: number;
@@ -26,6 +26,10 @@ type Parts = Partial<Record<PartKind, BufferGeometry[]>>;
 function box(parts: Parts, kind: PartKind, cx: number, cy: number, cz: number, sx: number, sy: number, sz: number) {
   if (sx <= 1e-4 || sy <= 1e-4 || sz <= 1e-4) return;
   (parts[kind] ??= []).push(new BoxGeometry(sx, sy, sz).translate(cx, cy, cz));
+}
+
+function sphere(parts: Parts, kind: PartKind, cx: number, cy: number, cz: number, rx: number, ry: number, rz: number) {
+  (parts[kind] ??= []).push(new SphereGeometry(1, 14, 10).scale(rx, ry, rz).translate(cx, cy, cz));
 }
 
 function cylinder(parts: Parts, kind: PartKind, cx: number, y0: number, cz: number, r: number, h: number) {
@@ -170,6 +174,41 @@ export function buildElementParts(el: ElementProps, openings: Opening[] = []): P
       box(parts, 'lamp', 0, h - 0.16, d / 2 - 0.25, Math.min(0.26, w * 0.9), 0.02, 0.44);
       break;
     }
+    case 'counter': {
+      // Caisson, plinthe en retrait, plateau débordant côté client (+Z).
+      const top = 0.04;
+      box(parts, 'dark', 0, 0.05, -0.03, w - 0.06, 0.1, d - 0.1);
+      box(parts, 'main', 0, 0.1 + (h - top - 0.1) / 2, -0.02, w - 0.02, h - top - 0.1, d - 0.08);
+      box(parts, 'trim', 0, h - top / 2, 0, w, top, d);
+      break;
+    }
+    case 'crt': {
+      // Écran cathodique : façade + caisson arrière rétréci, clavier non inclus.
+      const fd = Math.min(0.1, d * 0.3);
+      box(parts, 'main', 0, 0.02, 0, w * 0.55, 0.04, d * 0.6);
+      box(parts, 'main', 0, 0.04 + (h - 0.04) / 2, d / 2 - fd / 2, w, h - 0.04, fd);
+      box(parts, 'main', 0, 0.04 + (h - 0.04) * 0.46, -fd / 2, w * 0.72, (h - 0.04) * 0.8, d - fd);
+      box(parts, 'screen', 0, 0.04 + (h - 0.04) * 0.55, d / 2 + 0.001, w * 0.78, (h - 0.04) * 0.62, 0.004);
+      break;
+    }
+    case 'tree': {
+      // Volume d'étude : tronc + houppier en quelques masses (pas un modèle botanique).
+      const trunkH = h * 0.42;
+      cylinder(parts, 'bark', 0, 0, 0, Math.max(0.06, w * 0.05), trunkH + h * 0.15);
+      const r = w / 2;
+      sphere(parts, 'main', 0, trunkH + (h - trunkH) * 0.5, 0, r * 0.9, (h - trunkH) * 0.5, d / 2 * 0.9);
+      sphere(parts, 'main', r * 0.35, trunkH + (h - trunkH) * 0.38, d * 0.12, r * 0.6, (h - trunkH) * 0.34, d / 2 * 0.6);
+      sphere(parts, 'main', -r * 0.3, trunkH + (h - trunkH) * 0.62, -d * 0.1, r * 0.62, (h - trunkH) * 0.36, d / 2 * 0.62);
+      break;
+    }
+    case 'bed': {
+      const frameH = h * 0.45;
+      box(parts, 'main', 0, frameH / 2, 0, w, frameH, d);
+      box(parts, 'fabric', 0, frameH + (h - frameH) / 2, 0.02, w - 0.06, h - frameH, d - 0.1);
+      box(parts, 'main', 0, (h + 0.45) / 2, -d / 2 + 0.03, w, h + 0.45, 0.06);
+      box(parts, 'fabric', 0, h + 0.06, -d / 2 + 0.3, w * 0.7, 0.12, 0.35);
+      break;
+    }
     case 'barrier': {
       // Profil de glissière type « New Jersey » simplifié en trois gradins.
       box(parts, 'main', 0, 0.04, 0, w, 0.08, d);
@@ -259,6 +298,8 @@ export const PART_MATERIALS: Record<Exclude<PartKind, 'main'>, MeshStandardMater
   marking: new MeshStandardMaterial({ color: '#e8e8e2', roughness: 0.8 }),
   lamp: new MeshStandardMaterial({ color: '#fff6dc', emissive: '#ffe7b0', emissiveIntensity: 1.2, roughness: 0.4 }),
   facade: new MeshStandardMaterial({ color: '#3a4652', roughness: 0.18, metalness: 0.35 }),
+  bark: new MeshStandardMaterial({ color: '#5a4636', roughness: 0.95 }),
+  fabric: new MeshStandardMaterial({ color: '#f1efe9', roughness: 0.95 }),
   screen: new MeshStandardMaterial({ color: '#0b0d12', roughness: 0.15, metalness: 0.2 }),
   dark: new MeshStandardMaterial({ color: '#1b1d22', roughness: 0.5, metalness: 0.3 }),
   metal: new MeshStandardMaterial({ color: '#b9bcc2', roughness: 0.3, metalness: 0.9 }),

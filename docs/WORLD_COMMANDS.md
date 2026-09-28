@@ -35,6 +35,10 @@ dans le script, un **identifiant** d'objet, ou un **nom** unique dans la scène.
 | `SET_PROPERTIES` | `target`, `role?`, `tags?`, `size?`, `params?` (éléments) |
 | `CREATE_ROOM` | `width`, `depth`, `height`, `wallThickness?`, `doors?: [{ wall, offset?, width?, height? }]`, `windows?: [{ wall, offset?, width?, height?, sill? }]`, `light?`, `ceiling?`, `position?`, `rotation?`, `as?` |
 | `CREATE_STREET` | `length`, `lanes?`, `roadWidth?`, `sidewalkWidth?`, `buildings?`, `streetLightSpacing?`, `position?`, `rotation?`, `as?` |
+| `SET_ENVIRONMENT` | `background?`, `ambientIntensity?`, `sunIntensity?`, `environmentIntensity?`, `shadows?` |
+| `REPLACE_OBJECT` | `target` (un ou plusieurs), `assetId` ou `element`, `material?` — garde parent, position, orientation, nom ; re-posé sur son support |
+| `MOVE_OBJECT` | `target`, `by: [dx,dy,dz]` (monde) ou `to`, `yawBy?` |
+| `MODIFY_ROOM` | `target` (pièce), `width?`, `depth?`, `height?` — murs, sol, ouvertures, relations et unités recalculés |
 | `INSTANTIATE_PREFAB` | `prefabId` (`office-desk`, `cybercafe-workstation`, `living-corner`, `street-corner`, ou un prefab utilisateur), `position?`, `relation?`, `as?` |
 
 ## Relations spatiales (moteur de placement)

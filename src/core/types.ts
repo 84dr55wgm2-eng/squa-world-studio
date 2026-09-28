@@ -206,7 +206,11 @@ export type ElementShape =
   | 'monitor'
   | 'computer'
   | 'streetlight'
-  | 'barrier';
+  | 'barrier'
+  | 'counter'
+  | 'crt'
+  | 'tree'
+  | 'bed';
 
 export interface ElementProps {
   shape: ElementShape;

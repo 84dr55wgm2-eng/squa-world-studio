@@ -168,7 +168,8 @@ export function solvePlacement(doc: SceneDocument, subjectId: ObjectId, rel: Rel
 
   switch (rel.type) {
     case 'ON': {
-      const yaw = rel.yaw ?? currentYaw;
+      // Un objet posé sur un autre prend son orientation (un écran sur un bureau regarde l'utilisateur).
+      const yaw = rel.yaw ?? t.obb.yaw;
       const O = orient(local, scale, rot(yaw));
       const B = O.box;
       const bc = boxCenter(B);

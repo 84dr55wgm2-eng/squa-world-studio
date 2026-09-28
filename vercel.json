@@ -7,7 +7,7 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/((?!assets/|_app/|decoders/).*)",
+      "source": "/((?!assets/|_app/|decoders/|api/).*)",
       "destination": "/index.html"
     }
   ],
@@ -87,5 +87,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/world.ts": {
+      "maxDuration": 60
+    }
+  }
 }

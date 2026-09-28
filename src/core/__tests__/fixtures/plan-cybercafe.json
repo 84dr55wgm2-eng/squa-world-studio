@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "title": "Cybercafé à Lagos, 2002",
+  "sceneType": "interior",
+  "summary": "Petite salle rectangulaire aux murs usés, huit postes CRT alignés contre les murs, comptoir du gérant près de l'entrée.",
+  "environment": { "timeOfDay": "evening", "mood": "warm", "light": "dim" },
+  "zones": [
+    {
+      "id": "cafe", "kind": "room", "name": "Salle du cybercafé",
+      "width": 8, "depth": 6, "height": 2.8, "worn": true,
+      "openings": [
+        { "kind": "door", "wall": "south", "position": -0.55, "width": 1.0 },
+        { "kind": "window", "wall": "south", "position": 0.55, "width": 1.6, "sill": 1.0 },
+        { "kind": "window", "wall": "west", "position": 0.3, "width": 1.0, "sill": 1.2 }
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "id": "workstation", "type": "computer-desk", "name": "Poste", "zone": "cafe", "count": 8,
+      "layout": { "kind": "along-wall", "walls": ["north", "east"] },
+      "with": [
+        { "type": "crt-computer", "relation": "ON", "place": "back" },
+        { "type": "keyboard", "relation": "ON", "place": "front" },
+        { "type": "chair", "relation": "FACING" }
+      ]
+    },
+    {
+      "id": "counter", "type": "counter", "name": "Comptoir du gérant", "zone": "cafe",
+      "relationships": [ { "type": "AGAINST", "target": "cafe.wall-west", "offset": 1.6 } ],
+      "with": [
+        { "type": "crt-computer", "relation": "ON", "place": "left" },
+        { "type": "radio", "relation": "ON", "place": "right" }
+      ]
+    },
+    {
+      "id": "fridge", "type": "fridge", "name": "Frigo à boissons", "zone": "cafe",
+      "relationships": [ { "type": "NEXT_TO", "target": "counter", "side": "right", "gap": 0.2 } ]
+    },
+    { "id": "boxes", "type": "box", "name": "Carton", "zone": "cafe", "count": 2, "layout": { "kind": "corner", "corner": "north-west" } }
+  ],
+  "lighting": [ { "kind": "ceiling", "zone": "cafe", "count": 2, "intensity": 0.8, "color": "#ffc98a" } ],
+  "cameras": [ { "name": "Depuis l'entrée", "zone": "cafe", "viewpoint": "entrance" }, { "name": "Vue d'ensemble", "zone": "cafe", "viewpoint": "overview" } ]
+}

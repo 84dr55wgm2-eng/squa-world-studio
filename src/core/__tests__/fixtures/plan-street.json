@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "title": "Petite rue résidentielle",
+  "sceneType": "street",
+  "environment": { "timeOfDay": "day", "mood": "neutral", "light": "normal" },
+  "zones": [
+    { "id": "street", "kind": "street", "name": "Rue résidentielle", "length": 60, "lanes": 2, "sidewalkWidth": 3, "buildingsPerSide": 2, "buildingFloors": [2, 4], "streetLightSpacing": 15 }
+  ],
+  "objects": [
+    { "id": "trees", "type": "tree", "name": "Arbre", "zone": "street", "count": 6, "layout": { "kind": "along-street", "on": "sidewalk", "side": "both" } },
+    { "id": "cars", "type": "car", "name": "Voiture", "zone": "street", "count": 2, "layout": { "kind": "along-street", "on": "road", "side": "both" } }
+  ],
+  "cameras": [ { "name": "Trottoir", "zone": "street", "viewpoint": "street-level" }, { "name": "Vue aérienne", "zone": "street", "viewpoint": "overview" } ]
+}

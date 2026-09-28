@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "title": "Salon d'appartement moderne",
+  "sceneType": "interior",
+  "environment": { "timeOfDay": "day", "mood": "neutral", "light": "bright" },
+  "zones": [
+    {
+      "id": "living", "kind": "room", "name": "Salon",
+      "width": 6, "depth": 5, "height": 2.7, "wallColor": "#e8e4dc", "floorColor": "#a58a6a",
+      "openings": [
+        { "kind": "door", "wall": "south", "position": -0.7 },
+        { "kind": "window", "wall": "north", "position": 0, "width": 3.2, "height": 1.8, "sill": 0.5 }
+      ]
+    }
+  ],
+  "objects": [
+    { "id": "sofa", "type": "sofa", "zone": "living", "relationships": [ { "type": "AGAINST", "target": "living.wall-west" } ] },
+    { "id": "tv-stand", "type": "tv-stand", "zone": "living", "relationships": [ { "type": "AGAINST", "target": "living.wall-east" } ] },
+    { "id": "tv", "type": "tv", "zone": "living", "relationships": [ { "type": "ON", "target": "tv-stand" }, { "type": "FACING", "target": "sofa" } ] },
+    { "id": "coffee-table", "type": "coffee-table", "zone": "living", "relationships": [ { "type": "NEXT_TO", "target": "sofa", "side": "front", "gap": 0.45 } ] },
+    { "id": "plant", "type": "plant", "zone": "living", "relationships": [ { "type": "NEXT_TO", "target": "sofa", "side": "right", "gap": 0.15 } ] },
+    { "id": "armchair", "type": "armchair", "zone": "living", "relationships": [ { "type": "NEXT_TO", "target": "coffee-table", "side": "left", "gap": 0.4 } ] },
+    { "id": "vase", "type": "vase", "zone": "living", "relationships": [ { "type": "ON", "target": "coffee-table" } ] }
+  ],
+  "lighting": [ { "kind": "ceiling", "zone": "living", "count": 1, "intensity": 1 } ],
+  "cameras": [ { "zone": "living", "viewpoint": "entrance" } ]
+}

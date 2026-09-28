@@ -12,6 +12,7 @@ import { SceneHierarchy } from '../editor/panels/SceneHierarchy.tsx';
 import { useKeyboardShortcuts } from '../editor/shortcuts.ts';
 import { TopBar } from '../editor/TopBar.tsx';
 import { ValidatorPanel, WorldDialogs } from '../editor/WorldDialogs.tsx';
+import { CreateWorldPanel } from '../editor/CreateWorldPanel.tsx';
 import { ViewportHelp } from '../editor/ViewportHelp.tsx';
 import { startAutosave } from '../io/autosave.ts';
 import { Viewport } from '../viewport/Viewport.tsx';
@@ -54,6 +55,7 @@ export function App() {
             detail="La vue 3D nécessite WebGL (Chrome, Safari, Firefox ou Edge récents, accélération matérielle activée)."
           />
         )}
+        <CreateWorldPanel />
         <ViewportHelp />
         <ValidatorPanel />
         <Notice />

@@ -5,6 +5,7 @@ import { execute, redo, selectIsDirty, setSnap, setTransformMode, setValidatorOp
 import { resetView } from '../viewport/cameraController.ts';
 import { IconCode, IconFile, IconHome, IconMagnet, IconMove, IconOpen, IconRedo, IconRotate, IconSave, IconScale, IconShield, IconUndo } from './icons.tsx';
 import { openDialog } from './WorldDialogs.tsx';
+import { toggleWorldPanel, useWorldPanel } from './CreateWorldPanel.tsx';
 import { TextField } from './widgets/TextField.tsx';
 
 const MODES: { mode: TransformMode; label: string; key: string; Icon: typeof IconMove }[] = [
@@ -20,6 +21,7 @@ export function TopBar() {
   const redoLabel = useEditor((s) => s.history.future[0]?.label);
   const mode = useEditor((s) => s.transformMode);
   const validatorOpen = useEditor((s) => s.validatorOpen);
+  const worldOpen = useWorldPanel((s) => s.open);
 
   return (
     <header className="topbar">
@@ -35,6 +37,12 @@ export function TopBar() {
           onCommit={(name) => execute(renameProjectTx(useEditor.getState().doc, name))}
         />
         <span className={`save-state ${dirty ? 'is-dirty' : ''}`}>{dirty ? 'Non enregistré' : 'Enregistré'}</span>
+      </div>
+
+      <div className="toolbar-group">
+        <button type="button" className={`tb-btn tb-create ${worldOpen ? 'is-active' : ''}`} aria-pressed={worldOpen} aria-label="Créer un monde" onClick={() => toggleWorldPanel()} title="Décrire un lieu et générer un monde 3D éditable">
+          <span aria-hidden="true">✦</span> <span className="tb-label">Créer un monde</span>
+        </button>
       </div>
 
       <div className="toolbar-group">
