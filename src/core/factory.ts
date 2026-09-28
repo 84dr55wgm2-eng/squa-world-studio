@@ -1,5 +1,12 @@
 import { createId } from './ids.ts';
+import { SHAPES, defaultElementProps } from './elements.ts';
+import { defaultRoleForType } from './semantics.ts';
 import type {
+  ElementProps,
+  ElementShape,
+  MaterialProps,
+  ObjectSource,
+  SemanticRole,
   ModelProps,
   SceneDocument,
   SceneObject,
@@ -24,7 +31,11 @@ export const DEFAULT_OBJECT_NAMES: Record<SceneObjectType, string> = {
   light: 'Lumière',
   camera: 'Caméra',
   model: 'Modèle',
+  group: 'Groupe',
+  element: 'Élément',
 };
+
+export const DEFAULT_MATERIAL: MaterialProps = { color: '#b8bcc6', roughness: 0.7, metalness: 0, opacity: 1 };
 
 export const DEFAULT_MODEL_PROPS: Omit<ModelProps, 'assetId'> = {
   pivot: 'bottom-center',
@@ -46,6 +57,7 @@ export function createEmptyDocument(name = 'Sans titre', now = new Date()): Scen
     rootIds: [],
     objects: {},
     assets: {},
+    metadata: {},
   };
 }
 
@@ -61,6 +73,8 @@ function defaultPosition(type: SceneObjectType): Vec3 {
     case 'camera':
       return [0, 1.6, 6];
     case 'model':
+    case 'group':
+    case 'element':
       return [0, 0, 0];
   }
 }
@@ -70,28 +84,47 @@ export interface CreateObjectOptions {
   name?: string;
   position?: Vec3;
   scale?: Vec3;
+  rotation?: Vec3;
   /** Obligatoire pour un objet `model`. */
   model?: Partial<ModelProps> & { assetId: string };
+  /** Pour un objet `element` : forme, dimensions, paramètres, matériau. */
+  element?: Partial<ElementProps> & { shape: ElementShape };
+  semanticRole?: SemanticRole;
+  category?: string;
+  source?: ObjectSource;
+  tags?: string[];
 }
 
 /** Crée un objet complet avec toutes ses valeurs par défaut. N'ajoute rien au document. */
 export function createObject(type: SceneObjectType, opts: CreateObjectOptions = {}): SceneObject {
+  const elementShape = type === 'element' ? (opts.element?.shape ?? 'box') : undefined;
   const base = {
     id: opts.id ?? createId(),
-    name: opts.name ?? DEFAULT_OBJECT_NAMES[type],
+    name: opts.name ?? (elementShape ? SHAPES[elementShape].label : DEFAULT_OBJECT_NAMES[type]),
     parentId: null,
     children: [],
-    transform: { ...identityTransform(opts.position ?? defaultPosition(type)), scale: opts.scale ? [...opts.scale] as Vec3 : [1, 1, 1] as Vec3 },
+    transform: {
+      position: [...(opts.position ?? defaultPosition(type))] as Vec3,
+      rotation: [...(opts.rotation ?? [0, 0, 0])] as Vec3,
+      scale: opts.scale ? ([...opts.scale] as Vec3) : ([1, 1, 1] as Vec3),
+    },
     visible: true,
     locked: false,
-    tags: [],
+    tags: [...(opts.tags ?? (elementShape ? SHAPES[elementShape].tags : []))],
     metadata: {},
+    semanticRole: opts.semanticRole ?? (elementShape ? SHAPES[elementShape].role : defaultRoleForType(type)),
+    ...(opts.category ? { category: opts.category } : elementShape ? { category: SHAPES[elementShape].category } : {}),
+    ...(opts.source ? { source: { ...opts.source } } : {}),
   };
   switch (type) {
     case 'box':
-      return { ...base, type, material: { color: '#b8bcc6' } };
+      return { ...base, type, material: { ...DEFAULT_MATERIAL } };
     case 'sphere':
-      return { ...base, type, material: { color: '#b8bcc6' } };
+      return { ...base, type, material: { ...DEFAULT_MATERIAL } };
+    case 'group':
+      return { ...base, type };
+    case 'element':
+      return { ...base, type, element: defaultElementProps(elementShape!, opts.element) };
     case 'light':
       return { ...base, type, light: { kind: 'point', color: '#fff4e0', intensity: 10, distance: 0 } };
     case 'camera':

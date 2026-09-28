@@ -38,7 +38,11 @@ export type Operation =
   | { type: 'settings'; changes: Partial<SceneSettings> }
   | { type: 'project'; changes: Partial<Pick<ProjectInfo, 'name'>> }
   /** Ajoute / remplace (record) ou retire (null) une entrée de la table d'assets. */
-  | { type: 'asset'; id: AssetId; record: AssetRecord | null };
+  | { type: 'asset'; id: AssetId; record: AssetRecord | null }
+  /** Change le parent d'un objet (sans toucher à son transform local : voir commands pour conserver la position monde). */
+  | { type: 'move'; id: ObjectId; parentId: ObjectId | null; index: number }
+  /** Remplace les métadonnées de la scène. */
+  | { type: 'docMetadata'; metadata: Record<string, unknown> };
 
 export interface Transaction {
   /** Libellé lisible, affiché dans l'historique (ex. « Déplacer Cube »). */
@@ -51,6 +55,7 @@ const TYPE_SPECIFIC_KEYS: Partial<Record<ObjectChangeKey, SceneObject['type'][]>
   light: ['light'],
   camera: ['camera'],
   model: ['model'],
+  element: ['element'],
 };
 
 function assertAssetExists(doc: SceneDocument, obj: SceneObject): void {
@@ -159,6 +164,42 @@ function applyAsset(doc: SceneDocument, op: Extract<Operation, { type: 'asset' }
   return { doc: { ...doc, assets }, inverse };
 }
 
+function applyMove(doc: SceneDocument, op: Extract<Operation, { type: 'move' }>) {
+  const obj = getObject(doc, op.id);
+  if (op.parentId !== null) {
+    getObject(doc, op.parentId);
+    if (op.parentId === op.id || getSubtreeIds(doc, op.id).includes(op.parentId)) {
+      throw new SceneError(`Impossible de placer « ${obj.name} » dans l'un de ses propres enfants.`);
+    }
+  }
+  const oldParent = obj.parentId;
+  const oldIndex = indexInParent(doc, op.id);
+  // Retrait de l'ancienne liste.
+  let objects = { ...doc.objects };
+  let rootIds = doc.rootIds;
+  const removeFrom = (parentId: ObjectId | null) => {
+    if (parentId === null) rootIds = rootIds.filter((id) => id !== op.id);
+    else objects[parentId] = { ...objects[parentId], children: objects[parentId].children.filter((id) => id !== op.id) };
+  };
+  const insertInto = (parentId: ObjectId | null, index: number) => {
+    const list = parentId === null ? [...rootIds] : [...objects[parentId].children];
+    const i = index < 0 || index > list.length ? list.length : index;
+    list.splice(i, 0, op.id);
+    if (parentId === null) rootIds = list;
+    else objects[parentId] = { ...objects[parentId], children: list };
+  };
+  removeFrom(oldParent);
+  insertInto(op.parentId, op.index);
+  objects = { ...objects, [op.id]: { ...objects[op.id], parentId: op.parentId } };
+  const inverse: Operation = { type: 'move', id: op.id, parentId: oldParent, index: oldIndex };
+  return { doc: { ...doc, objects, rootIds }, inverse };
+}
+
+function applyDocMetadata(doc: SceneDocument, op: Extract<Operation, { type: 'docMetadata' }>) {
+  const inverse: Operation = { type: 'docMetadata', metadata: clone(doc.metadata ?? {}) };
+  return { doc: { ...doc, metadata: clone(op.metadata) }, inverse };
+}
+
 export function applyOperation(doc: SceneDocument, op: Operation): { doc: SceneDocument; inverse: Operation } {
   switch (op.type) {
     case 'insert':
@@ -173,6 +214,10 @@ export function applyOperation(doc: SceneDocument, op: Operation): { doc: SceneD
       return applyProject(doc, op);
     case 'asset':
       return applyAsset(doc, op);
+    case 'move':
+      return applyMove(doc, op);
+    case 'docMetadata':
+      return applyDocMetadata(doc, op);
   }
 }
 

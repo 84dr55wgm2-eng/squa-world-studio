@@ -16,9 +16,21 @@ export const CATEGORY_TREE: CategoryGroup[] = [
     label: 'Architecture',
     children: [
       { id: 'architecture.buildings', label: 'Bâtiments' },
+      { id: 'architecture.floors', label: 'Sols' },
       { id: 'architecture.walls', label: 'Murs' },
       { id: 'architecture.doors', label: 'Portes' },
       { id: 'architecture.windows', label: 'Fenêtres' },
+      { id: 'architecture.stairs', label: 'Escaliers' },
+    ],
+  },
+  {
+    id: 'urban',
+    label: 'Urbain',
+    children: [
+      { id: 'urban.roads', label: 'Routes' },
+      { id: 'urban.sidewalks', label: 'Trottoirs' },
+      { id: 'urban.lighting', label: 'Éclairage public' },
+      { id: 'urban.barriers', label: 'Barrières' },
     ],
   },
   {
@@ -41,6 +53,7 @@ export const CATEGORY_TREE: CategoryGroup[] = [
   { id: 'vehicles', label: 'Véhicules' },
   { id: 'characters', label: 'Personnages' },
   { id: 'lights', label: 'Lumières' },
+  { id: 'prefabs', label: 'Prefabs' },
   { id: 'cameras', label: 'Caméras' },
 ];
 

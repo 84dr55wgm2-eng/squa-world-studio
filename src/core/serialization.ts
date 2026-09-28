@@ -1,30 +1,38 @@
 /**
- * Format de fichier SQUA World Studio (`.squa.json`).
+ * Format de fichier SQUA World Studio (`.squa.json`), schéma v3.
  *
- * Voir docs/SCENE_FORMAT.md pour la description complète.
- * Le chargement est défensif : le fichier est validé champ par champ, les valeurs
- * manquantes non essentielles reçoivent leur défaut (avec un avertissement), et
- * toute incohérence structurelle (identifiants dupliqués, hiérarchie cassée…)
- * provoque un refus clair plutôt qu'une scène à moitié chargée.
+ * Voir docs/SCENE_FORMAT.md. Le chargement est défensif : chaque champ est validé,
+ * les valeurs manquantes non essentielles reçoivent leur défaut (avec avertissement),
+ * et toute incohérence structurelle provoque un refus clair. Les anciens formats (v1, v2)
+ * sont migrés étape par étape.
  */
-import { DEFAULT_SETTINGS, createObject } from './factory.ts';
+import { SHAPES, clampSize, isElementShape, normalizeParams } from './elements.ts';
+import { DEFAULT_MATERIAL, DEFAULT_SETTINGS, createObject } from './factory.ts';
+import { getAllIdsInOrder } from './scene.ts';
+import { isSemanticRole } from './semantics.ts';
 import type {
   AssetId,
   AssetRecord,
   AssetSource,
+  ElementProps,
+  MaterialOverride,
+  MaterialProps,
   ModelProps,
   ObjectId,
+  PlacementRules,
+  RelationRecord,
+  RelationType,
   SceneDocument,
   SceneObject,
   SceneObjectType,
   SceneSettings,
+  SupportKind,
   Transform,
   Vec3,
 } from './types.ts';
-import { getAllIdsInOrder } from './scene.ts';
 
 export const SCENE_FORMAT = 'squa-world-studio/scene';
-export const SCENE_FORMAT_VERSION = 2;
+export const SCENE_FORMAT_VERSION = 3;
 export const SCENE_FILE_EXTENSION = '.squa.json';
 
 /** Contenu d'un fichier importé, intégré au .squa.json pour que la scène soit transportable. */
@@ -35,17 +43,22 @@ export interface EmbeddedFile {
   data: string;
 }
 
-export interface SceneFileV2 {
+export interface SceneFileV3 {
   format: typeof SCENE_FORMAT;
-  version: 2;
+  schemaVersion: 3;
   savedAt: string;
   project: SceneDocument['project'];
-  settings: SceneSettings;
+  /** Réglages d'environnement (fond, lumière, ombres, grille). */
+  environment: SceneSettings;
   rootIds: ObjectId[];
-  /** Objets dans l'ordre de la hiérarchie (parents avant enfants). */
+  /** Tous les objets, dans l'ordre de la hiérarchie (parents avant enfants). */
   objects: SceneObject[];
   /** Assets réellement utilisés par les objets. */
   assets: AssetRecord[];
+  /** Index de lecture rapide (dérivés de `objects`, recalculés à chaque enregistrement). */
+  groups: ObjectId[];
+  cameras: ObjectId[];
+  metadata: Record<string, unknown>;
   /** Fichiers importés, indexés par empreinte SHA-256 (seulement ceux des assets `file`). */
   files?: Record<string, EmbeddedFile>;
 }
@@ -61,22 +74,26 @@ export function referencedFileHashes(doc: SceneDocument): string[] {
   return [...hashes];
 }
 
-export function serializeDocument(doc: SceneDocument, now = new Date(), files?: Record<string, EmbeddedFile>): SceneFileV2 {
+export function serializeDocument(doc: SceneDocument, now = new Date(), files?: Record<string, EmbeddedFile>): SceneFileV3 {
   const savedAt = now.toISOString();
+  const ordered = getAllIdsInOrder(doc);
   // Seuls les assets encore utilisés sont écrits (un asset retiré de la scène disparaît du fichier).
-  const usedAssetIds = [...new Set(getAllIdsInOrder(doc).flatMap((id) => {
+  const usedAssetIds = [...new Set(ordered.flatMap((id) => {
     const o = doc.objects[id];
     return o.type === 'model' ? [o.model.assetId] : [];
   }))];
-  const file: SceneFileV2 = {
+  const file: SceneFileV3 = {
     format: SCENE_FORMAT,
-    version: SCENE_FORMAT_VERSION,
+    schemaVersion: SCENE_FORMAT_VERSION,
     savedAt,
     project: { ...doc.project, updatedAt: savedAt },
-    settings: { ...doc.settings },
+    environment: { ...doc.settings },
     rootIds: [...doc.rootIds],
-    objects: getAllIdsInOrder(doc).map((id) => structuredClone(doc.objects[id])),
+    objects: ordered.map((id) => structuredClone(doc.objects[id])),
     assets: usedAssetIds.filter((id) => doc.assets[id]).map((id) => structuredClone(doc.assets[id])),
+    groups: ordered.filter((id) => doc.objects[id].type === 'group'),
+    cameras: ordered.filter((id) => doc.objects[id].type === 'camera'),
+    metadata: structuredClone(doc.metadata ?? {}),
   };
   if (files && Object.keys(files).length > 0) file.files = files;
   return file;
@@ -92,11 +109,16 @@ export type ParseResult =
 
 class InvalidFile extends Error {}
 
-const KNOWN_TYPES: SceneObjectType[] = ['box', 'sphere', 'light', 'camera', 'model'];
+const KNOWN_TYPES: SceneObjectType[] = ['box', 'sphere', 'light', 'camera', 'model', 'group', 'element'];
+const SUPPORTS: SupportKind[] = ['ground', 'surface', 'wall', 'ceiling', 'none'];
+const RELATIONS: RelationType[] = ['ON', 'INSIDE', 'NEXT_TO', 'AGAINST', 'CENTERED_IN', 'FACING', 'ATTACHED_TO', 'ALONG'];
+const SOURCE_KINDS = ['user', 'template', 'prefab', 'composer', 'import', 'ai'] as const;
+const PIVOTS: ModelProps['pivot'][] = ['original', 'bottom-center', 'center'];
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isHexColor = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
+const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 
 function readVec3(v: unknown, where: string): Vec3 {
   if (!Array.isArray(v) || v.length !== 3 || !v.every(isFiniteNumber)) {
@@ -114,7 +136,7 @@ function readTransform(v: unknown, where: string): Transform {
   };
 }
 
-/** Fusionne des propriétés spécifiques lues dans le fichier avec leurs valeurs par défaut, en vérifiant les types. */
+/** Fusionne des propriétés lues dans le fichier avec leurs valeurs par défaut, en vérifiant les types. */
 function mergeProps<T extends object>(defaults: T, raw: unknown, where: string, warnings: string[]): T {
   const out = { ...defaults } as Record<string, unknown>;
   if (raw === undefined) {
@@ -125,56 +147,36 @@ function mergeProps<T extends object>(defaults: T, raw: unknown, where: string, 
   for (const [key, def] of Object.entries(defaults)) {
     const value = raw[key];
     if (value === undefined) continue;
-    const valid =
-      typeof def === 'number' ? isFiniteNumber(value) : key === 'color' ? isHexColor(value) : typeof value === typeof def;
+    const valid = typeof def === 'number' ? isFiniteNumber(value) : key === 'color' ? isHexColor(value) : typeof value === typeof def;
     if (!valid) throw new InvalidFile(`${where}.${key} : valeur invalide.`);
     out[key] = value;
   }
   return out as T;
 }
 
-function readObject(raw: unknown, index: number, warnings: string[]): SceneObject {
-  const where = `objects[${index}]`;
-  if (!isRecord(raw)) throw new InvalidFile(`${where} : objet attendu.`);
-  if (typeof raw.id !== 'string' || raw.id.length === 0) throw new InvalidFile(`${where}.id manquant.`);
-  if (typeof raw.type !== 'string' || !KNOWN_TYPES.includes(raw.type as SceneObjectType)) {
-    throw new InvalidFile(`${where} : type « ${String(raw.type)} » non pris en charge par cette version.`);
-  }
-  const type = raw.type as SceneObjectType;
-  const defaults = createObject(type, { id: raw.id });
-
-  const obj: SceneObject = {
-    ...defaults,
-    name: typeof raw.name === 'string' && raw.name.trim() ? raw.name : defaults.name,
-    parentId: raw.parentId === null || raw.parentId === undefined ? null : String(raw.parentId),
-    children: Array.isArray(raw.children) ? raw.children.map(String) : [],
-    transform: readTransform(raw.transform, where),
-    visible: typeof raw.visible === 'boolean' ? raw.visible : true,
-    locked: typeof raw.locked === 'boolean' ? raw.locked : false,
-    tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : [],
-    metadata: isRecord(raw.metadata) ? structuredClone(raw.metadata) : {},
-  };
-
-  switch (obj.type) {
-    case 'box':
-    case 'sphere':
-      obj.material = mergeProps(obj.material, raw.material, `${where}.material`, warnings);
-      break;
-    case 'light':
-      obj.light = mergeProps(obj.light, raw.light, `${where}.light`, warnings);
-      if (obj.light.kind !== 'point') throw new InvalidFile(`${where}.light.kind non pris en charge.`);
-      break;
-    case 'camera':
-      obj.camera = mergeProps(obj.camera, raw.camera, `${where}.camera`, warnings);
-      break;
-    case 'model':
-      obj.model = readModelProps(raw.model, `${where}.model`);
-      break;
-  }
-  return obj;
+function readMaterial(raw: unknown, defaults: MaterialProps, where: string, warnings: string[]): MaterialProps {
+  const m = mergeProps(defaults, raw, where, warnings);
+  m.roughness = Math.min(1, Math.max(0, m.roughness));
+  m.metalness = Math.min(1, Math.max(0, m.metalness));
+  m.opacity = Math.min(1, Math.max(0, m.opacity));
+  return m;
 }
 
-const PIVOTS: ModelProps['pivot'][] = ['original', 'bottom-center', 'center'];
+function readMaterialOverride(raw: unknown, where: string): MaterialOverride | null {
+  if (raw === undefined || raw === null) return null;
+  if (!isRecord(raw)) throw new InvalidFile(`${where} : objet attendu.`);
+  const out: MaterialOverride = {};
+  if (raw.color !== undefined) {
+    if (!isHexColor(raw.color)) throw new InvalidFile(`${where}.color invalide.`);
+    out.color = raw.color;
+  }
+  for (const k of ['roughness', 'metalness', 'opacity'] as const) {
+    if (raw[k] === undefined) continue;
+    if (!isFiniteNumber(raw[k])) throw new InvalidFile(`${where}.${k} invalide.`);
+    out[k] = Math.min(1, Math.max(0, raw[k]));
+  }
+  return out;
+}
 
 function readModelProps(raw: unknown, where: string): ModelProps {
   if (!isRecord(raw)) throw new InvalidFile(`${where} manquant.`);
@@ -196,10 +198,112 @@ function readModelProps(raw: unknown, where: string): ModelProps {
       m[k] = raw[k];
     }
   }
+  const override = readMaterialOverride(raw.materialOverride, `${where}.materialOverride`);
+  if (override) m.materialOverride = override;
   return m;
 }
 
-const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
+function readElementProps(raw: unknown, where: string, warnings: string[]): ElementProps {
+  if (!isRecord(raw)) throw new InvalidFile(`${where} manquant.`);
+  if (!isElementShape(raw.shape)) throw new InvalidFile(`${where}.shape « ${String(raw.shape)} » inconnue.`);
+  const shape = raw.shape;
+  const size = clampSize(shape, raw.size === undefined ? [...SHAPES[shape].defaultSize] : readVec3(raw.size, `${where}.size`));
+  const params: Record<string, number> = {};
+  if (isRecord(raw.params)) for (const [k, v] of Object.entries(raw.params)) if (isFiniteNumber(v)) params[k] = v;
+  return { shape, size, params: normalizeParams(shape, params), material: readMaterial(raw.material, SHAPES[shape].material, `${where}.material`, warnings) };
+}
+
+function readPlacement(raw: unknown, where: string): PlacementRules | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw)) throw new InvalidFile(`${where} : objet attendu.`);
+  const out: PlacementRules = {};
+  if (raw.support !== undefined) {
+    if (!SUPPORTS.includes(raw.support as SupportKind)) throw new InvalidFile(`${where}.support invalide.`);
+    out.support = raw.support as SupportKind;
+  }
+  if (typeof raw.allowFloating === 'boolean') out.allowFloating = raw.allowFloating;
+  if (Array.isArray(raw.allowOverlapWith)) out.allowOverlapWith = raw.allowOverlapWith.filter(isSemanticRole);
+  return out;
+}
+
+function readRelation(raw: unknown, where: string, warnings: string[]): RelationRecord | undefined {
+  if (raw === undefined) return undefined;
+  if (!isRecord(raw) || !RELATIONS.includes(raw.type as RelationType) || !isNonEmptyString(raw.targetId)) {
+    warnings.push(`${where} ignorée (relation invalide).`);
+    return undefined;
+  }
+  const rel: RelationRecord = { type: raw.type as RelationType, targetId: raw.targetId };
+  if (isRecord(raw.params)) {
+    rel.params = {};
+    for (const [k, v] of Object.entries(raw.params)) if (['number', 'string', 'boolean'].includes(typeof v)) rel.params[k] = v as number | string | boolean;
+  }
+  return rel;
+}
+
+function readObject(raw: unknown, index: number, assets: Record<AssetId, AssetRecord>, warnings: string[]): SceneObject {
+  const where = `objects[${index}]`;
+  if (!isRecord(raw)) throw new InvalidFile(`${where} : objet attendu.`);
+  if (typeof raw.id !== 'string' || raw.id.length === 0) throw new InvalidFile(`${where}.id manquant.`);
+  if (typeof raw.type !== 'string' || !KNOWN_TYPES.includes(raw.type as SceneObjectType)) {
+    throw new InvalidFile(`${where} : type « ${String(raw.type)} » non pris en charge par cette version.`);
+  }
+  const type = raw.type as SceneObjectType;
+  const elementShape = type === 'element' && isRecord(raw.element) && isElementShape(raw.element.shape) ? raw.element.shape : undefined;
+  const defaults = createObject(type, { id: raw.id, ...(elementShape ? { element: { shape: elementShape } } : {}) });
+
+  let role = defaults.semanticRole;
+  if (raw.semanticRole !== undefined) {
+    if (isSemanticRole(raw.semanticRole)) role = raw.semanticRole;
+    else warnings.push(`${where}.semanticRole « ${String(raw.semanticRole)} » inconnu : rôle par défaut utilisé.`);
+  }
+
+  const obj: SceneObject = {
+    ...defaults,
+    name: typeof raw.name === 'string' && raw.name.trim() ? raw.name : defaults.name,
+    parentId: raw.parentId === null || raw.parentId === undefined ? null : String(raw.parentId),
+    children: Array.isArray(raw.children) ? raw.children.map(String) : [],
+    transform: readTransform(raw.transform, where),
+    visible: typeof raw.visible === 'boolean' ? raw.visible : true,
+    locked: typeof raw.locked === 'boolean' ? raw.locked : false,
+    tags: Array.isArray(raw.tags) ? raw.tags.filter((t): t is string => typeof t === 'string') : [],
+    metadata: isRecord(raw.metadata) ? structuredClone(raw.metadata) : {},
+    semanticRole: role,
+  };
+  if (typeof raw.category === 'string') obj.category = raw.category;
+  else delete obj.category;
+  const placement = readPlacement(raw.placement, `${where}.placement`);
+  if (placement) obj.placement = placement;
+  const relation = readRelation(raw.relation, `${where}.relation`, warnings);
+  if (relation) obj.relation = relation;
+  if (isRecord(raw.source) && SOURCE_KINDS.includes(raw.source.kind as (typeof SOURCE_KINDS)[number])) {
+    obj.source = { kind: raw.source.kind as (typeof SOURCE_KINDS)[number], ...(typeof raw.source.ref === 'string' ? { ref: raw.source.ref } : {}) };
+  } else delete obj.source;
+
+  switch (obj.type) {
+    case 'box':
+    case 'sphere':
+      obj.material = readMaterial(raw.material, DEFAULT_MATERIAL, `${where}.material`, warnings);
+      break;
+    case 'light':
+      obj.light = mergeProps(obj.light, raw.light, `${where}.light`, warnings);
+      if (obj.light.kind !== 'point') throw new InvalidFile(`${where}.light.kind non pris en charge.`);
+      break;
+    case 'camera':
+      obj.camera = mergeProps(obj.camera, raw.camera, `${where}.camera`, warnings);
+      break;
+    case 'model':
+      obj.model = readModelProps(raw.model, `${where}.model`);
+      // Fichier ancien sans rôle : le rôle suggéré par l'asset, s'il existe.
+      if (raw.semanticRole === undefined && assets[obj.model.assetId]?.semanticRole) obj.semanticRole = assets[obj.model.assetId].semanticRole!;
+      break;
+    case 'element':
+      obj.element = readElementProps(raw.element, `${where}.element`, warnings);
+      break;
+    case 'group':
+      break;
+  }
+  return obj;
+}
 
 function readAssetSource(raw: unknown, where: string): AssetSource {
   if (!isRecord(raw)) throw new InvalidFile(`${where} manquant.`);
@@ -241,6 +345,8 @@ function readAssets(raw: unknown): Record<AssetId, AssetRecord> {
       record.license = { spdx: a.license.spdx, author: a.license.author };
       if (typeof a.license.sourceUrl === 'string') record.license.sourceUrl = a.license.sourceUrl;
     }
+    if (isRecord(a.bounds)) record.bounds = { min: readVec3(a.bounds.min, `${where}.bounds.min`), max: readVec3(a.bounds.max, `${where}.bounds.max`) };
+    if (isSemanticRole(a.semanticRole)) record.semanticRole = a.semanticRole;
     out[a.id] = record;
   });
   return out;
@@ -261,10 +367,10 @@ function readEmbeddedFiles(raw: unknown): Record<string, EmbeddedFile> {
 
 function readSettings(raw: unknown, warnings: string[]): SceneSettings {
   if (raw === undefined) {
-    warnings.push('settings absent : réglages par défaut utilisés.');
+    warnings.push('environment absent : réglages par défaut utilisés.');
     return { ...DEFAULT_SETTINGS };
   }
-  return mergeProps(DEFAULT_SETTINGS, raw, 'settings', warnings);
+  return mergeProps(DEFAULT_SETTINGS, raw, 'environment', warnings);
 }
 
 /** Vérifie que parentId / children / rootIds décrivent un arbre cohérent, sans cycle. */
@@ -283,19 +389,30 @@ function checkHierarchy(doc: SceneDocument): void {
   if (orphans.length > 0) throw new InvalidFile(`Hiérarchie : ${orphans.length} objet(s) non rattaché(s) à la scène.`);
 }
 
-/** Migrations successives du format : chaque étape fait passer d'une version à la suivante. */
+/**
+ * Migrations successives : chaque étape fait passer d'une version à la suivante,
+ * de sorte qu'un fichier de n'importe quelle version antérieure reste lisible.
+ */
 function migrate(raw: Record<string, unknown>, warnings: string[]): Record<string, unknown> {
-  const version = raw.version;
+  const version = raw.schemaVersion ?? raw.version;
   if (!isFiniteNumber(version)) throw new InvalidFile('Version de format manquante.');
   if (version > SCENE_FORMAT_VERSION) {
     throw new InvalidFile(`Ce fichier a été créé par une version plus récente (format v${version}).`);
   }
-  let data = raw;
-  if (data.version === 1) {
-    // v1 → v2 : apparition de la table d'assets (modèles 3D) et des réglages d'environnement / ombres.
-    data = { ...data, version: 2, assets: [] };
-    warnings.push('Scène au format v1 convertie au format v2.');
+  let data: Record<string, unknown> = { ...raw, schemaVersion: version };
+  const start = version;
+  if (data.schemaVersion === 1) {
+    // v1 → v2 : apparition de la table d'assets (modèles 3D).
+    data = { ...data, schemaVersion: 2, assets: [] };
   }
+  if (data.schemaVersion === 2) {
+    // v2 → v3 : « settings » devient « environment », rôles sémantiques et matériaux PBR complets
+    // (les valeurs manquantes sont complétées à la lecture des objets), métadonnées de scène.
+    const { settings, version: _v, ...rest } = data;
+    void _v;
+    data = { ...rest, schemaVersion: 3, environment: settings, metadata: {} };
+  }
+  if (start < SCENE_FORMAT_VERSION) warnings.push(`Scène au format v${start} convertie au format v${SCENE_FORMAT_VERSION}.`);
   return data;
 }
 
@@ -321,11 +438,14 @@ export function parseSceneFile(input: string | unknown): ParseResult {
 
     const assets = readAssets(data.assets);
     const objects: Record<ObjectId, SceneObject> = {};
+    const before = warnings.length;
     data.objects.forEach((rawObj, i) => {
-      const obj = readObject(rawObj, i, warnings);
+      const obj = readObject(rawObj, i, assets, warnings);
       if (objects[obj.id]) throw new InvalidFile(`Identifiant dupliqué : ${obj.id}`);
       objects[obj.id] = obj;
     });
+    // Après une migration, les compléments de valeurs par défaut sont attendus : un seul message suffit.
+    if (Number(raw.schemaVersion ?? raw.version) < SCENE_FORMAT_VERSION) warnings.splice(before);
 
     const doc: SceneDocument = {
       project: {
@@ -333,10 +453,11 @@ export function parseSceneFile(input: string | unknown): ParseResult {
         createdAt: typeof project.createdAt === 'string' ? project.createdAt : now,
         updatedAt: typeof project.updatedAt === 'string' ? project.updatedAt : now,
       },
-      settings: readSettings(data.settings, warnings),
+      settings: readSettings(data.environment, warnings),
       rootIds: data.rootIds.map(String),
       objects,
       assets,
+      metadata: isRecord(data.metadata) ? structuredClone(data.metadata) : {},
     };
     checkHierarchy(doc);
     for (const o of Object.values(objects)) {
@@ -348,3 +469,4 @@ export function parseSceneFile(input: string | unknown): ParseResult {
     throw e;
   }
 }
+

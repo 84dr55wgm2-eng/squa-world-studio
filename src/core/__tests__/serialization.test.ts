@@ -28,7 +28,7 @@ function richScene(): SceneDocument {
   doc = applyTransaction(doc, updateObjectTx(doc, ids[0], {
     name: 'Comptoir',
     transform: { position: [1.5, 0.5, -2], rotation: [0, 90, 0], scale: [3, 1, 0.8] },
-    material: { color: '#8a5a3c' },
+    material: { color: '#8a5a3c', roughness: 0.7, metalness: 0, opacity: 1 },
     tags: ['mobilier'],
     metadata: { note: 'près de l’entrée' },
   })).doc;
@@ -60,7 +60,7 @@ describe('sauvegarde / chargement JSON', () => {
   it('écrit un en-tête de format et les objets dans l’ordre de la hiérarchie', () => {
     const file = serializeDocument(richScene());
     assert.equal(file.format, SCENE_FORMAT);
-    assert.equal(file.version, 2);
+    assert.equal(file.schemaVersion, 3);
     const names = file.objects.map((o) => o.name);
     assert.deepEqual(names.slice(0, 2), ['Comptoir', 'Écran']);
   });
@@ -71,7 +71,7 @@ describe('sauvegarde / chargement JSON', () => {
   });
 
   it('refuse une version de format plus récente', () => {
-    const file = { ...serializeDocument(richScene()), version: 99 };
+    const file = { ...serializeDocument(richScene()), schemaVersion: 99 };
     const r = parseSceneFile(JSON.stringify(file));
     assert.equal(r.ok, false);
     if (!r.ok) assert.match(r.error, /plus récente/);

@@ -5,7 +5,7 @@
  * ajouter une entrée dans public/assets/library/library.json (voir docs/ASSETS.md),
  * sans toucher au code du viewport.
  */
-import type { AssetLicense, AssetRecord, ModelPivot, Vec3 } from '../core/index.ts';
+import { isSemanticRole, type AssetLicense, type AssetRecord, type ModelPivot, type SemanticRole, type Vec3 } from '../core/index.ts';
 import { isKnownCategory } from './categories.ts';
 
 export const LIBRARY_FORMAT = 'squa-world-studio/asset-library';
@@ -27,6 +27,23 @@ export interface AssetDefinition {
   unitScale: number;
   license?: AssetLicense;
   metadata: Record<string, unknown>;
+  /** Rotation (degrés) appliquée à l'insertion. */
+  defaultRotation: Vec3;
+  /** Rôle sémantique des instances (ex. « furniture », « vehicle »). */
+  semanticRole?: SemanticRole;
+  /** Boîte englobante du fichier (unités du fichier, avant pivot et conversion d'unités). */
+  bounds?: { min: Vec3; max: Vec3 };
+  /** Statistiques mesurées hors ligne (scripts/measure-glb.py). */
+  stats?: AssetStats;
+}
+
+export interface AssetStats {
+  meshes: number;
+  triangles: number;
+  materials: number;
+  textures: number;
+  /** Octets. */
+  fileSize: number;
 }
 
 export interface ParsedManifest {
@@ -37,6 +54,7 @@ export interface ParsedManifest {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const vec3 = (v: unknown): Vec3 | null => (Array.isArray(v) && v.length === 3 && v.every(num) ? [v[0], v[1], v[2]] : null);
 const PIVOTS: ModelPivot[] = ['original', 'bottom-center', 'center'];
 
 /**
@@ -70,7 +88,7 @@ export function parseLibraryManifest(input: unknown, manifestPath = LIBRARY_MANI
   if (!isRecord(input) || input.format !== LIBRARY_FORMAT || !Array.isArray(input.assets)) {
     throw new Error("Ce fichier n'est pas un manifest de bibliothèque SQUA World Studio.");
   }
-  if (input.version !== 1) throw new Error(`Version de manifest non prise en charge : ${String(input.version)}`);
+  if (input.version !== 1 && input.version !== 2) throw new Error(`Version de manifest non prise en charge : ${String(input.version)}`);
   const seen = new Set<string>();
   const assets: AssetDefinition[] = [];
   input.assets.forEach((raw, i) => {
@@ -103,7 +121,18 @@ export function parseLibraryManifest(input: unknown, manifestPath = LIBRARY_MANI
           : [0, 0, 0],
       unitScale: num(raw.unitScale) && raw.unitScale > 0 ? raw.unitScale : 1,
       metadata: isRecord(raw.metadata) ? raw.metadata : {},
+      defaultRotation: vec3(raw.defaultRotation) ?? [0, 0, 0],
     };
+    if (isSemanticRole(raw.semanticRole)) def.semanticRole = raw.semanticRole;
+    else if (raw.semanticRole !== undefined) warnings.push(`${where} : rôle sémantique inconnu « ${String(raw.semanticRole)} ».`);
+    if (isRecord(raw.bounds)) {
+      const min = vec3(raw.bounds.min), max = vec3(raw.bounds.max);
+      if (min && max && min.every((v, k) => v <= max[k])) def.bounds = { min, max };
+      else warnings.push(`${where} : boîte englobante invalide (ignorée, mesurée au chargement).`);
+    }
+    if (isRecord(raw.stats) && ['meshes', 'triangles', 'materials', 'textures', 'fileSize'].every((k) => num((raw.stats as Record<string, unknown>)[k]))) {
+      def.stats = raw.stats as unknown as AssetStats;
+    }
     if (str(raw.thumbnailUrl)) def.thumbnailUrl = resolveManifestPath(raw.thumbnailUrl, manifestPath);
     if (isRecord(raw.license) && str(raw.license.spdx) && str(raw.license.author)) {
       def.license = { spdx: raw.license.spdx, author: raw.license.author };
@@ -125,6 +154,8 @@ export function libraryAssetRecord(def: AssetDefinition): AssetRecord {
     source: { kind: 'library', libraryId: def.id, modelUrl: def.modelUrl },
   };
   if (def.license) record.license = { ...def.license };
+  if (def.bounds) record.bounds = { min: [...def.bounds.min], max: [...def.bounds.max] };
+  if (def.semanticRole) record.semanticRole = def.semanticRole;
   return record;
 }
 

@@ -65,3 +65,42 @@ describe('manifest de bibliothèque', () => {
     assert.equal(filterAssets(defs, {}).length, 4);
   });
 });
+
+describe('manifest v2 (bounds, rôle, statistiques)', () => {
+  it('lit bounds / semanticRole / stats et les reporte dans l’enregistrement de scène', () => {
+    const r = parseLibraryManifest({
+      format: LIBRARY_FORMAT,
+      version: 2,
+      assets: [
+        {
+          id: 'c', name: 'Chaise', category: 'props.furniture', modelUrl: 'c/c.glb', semanticRole: 'furniture',
+          bounds: { min: [-0.4, 0, -0.3], max: [0.4, 0.7, 0.3] },
+          stats: { meshes: 2, triangles: 100, materials: 1, textures: 0, fileSize: 1234 },
+          defaultRotation: [0, 90, 0],
+          license: { spdx: 'CC0-1.0', author: 'X' },
+        },
+        { id: 'bad', name: 'B', category: 'props.objects', modelUrl: 'b.glb', semanticRole: 'dragon', bounds: { min: [1, 1, 1], max: [0, 0, 0] }, license: { spdx: 'CC0-1.0', author: 'X' } },
+      ],
+    });
+    const [c, bad] = r.assets;
+    assert.deepEqual(c.defaultRotation, [0, 90, 0]);
+    assert.equal(c.stats?.triangles, 100);
+    const rec = libraryAssetRecord(c);
+    assert.equal(rec.semanticRole, 'furniture');
+    assert.deepEqual(rec.bounds, { min: [-0.4, 0, -0.3], max: [0.4, 0.7, 0.3] });
+    assert.equal(bad.bounds, undefined);
+    assert.equal(r.warnings.length, 2);
+  });
+
+  it('le manifest livré est valide, sans avertissement, et chaque asset a une boîte et un rôle', async () => {
+    const fs = await import('node:fs');
+    const data = JSON.parse(fs.readFileSync(new URL('../../../public/assets/library/library.json', import.meta.url), 'utf8'));
+    const r = parseLibraryManifest(data);
+    assert.deepEqual(r.warnings, []);
+    assert.equal(r.assets.length, 16);
+    for (const a of r.assets) {
+      assert.ok(a.bounds && a.semanticRole && a.stats && a.license, a.id);
+      assert.ok(fs.existsSync(new URL(`../../../public/${a.modelUrl}`, import.meta.url)), a.modelUrl);
+    }
+  });
+});

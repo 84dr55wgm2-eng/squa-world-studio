@@ -23,11 +23,80 @@ export interface Transform {
 export type ObjectId = string;
 
 /** Types d'objets réellement pris en charge par l'éditeur à ce stade. */
-export type SceneObjectType = 'box' | 'sphere' | 'light' | 'camera' | 'model';
+export type SceneObjectType = 'box' | 'sphere' | 'light' | 'camera' | 'model' | 'group' | 'element';
 
+/**
+ * Rôle sémantique : ce que l'objet EST dans le monde (et pas sa forme).
+ * Stocké dans les données de scène : le moteur de placement, le validateur et plus tard
+ * l'IA raisonnent sur ce rôle (« une porte appartient à un mur », « une voiture roule sur une route »).
+ */
+export type SemanticRole =
+  | 'building'
+  | 'wall'
+  | 'floor'
+  | 'ceiling'
+  | 'door'
+  | 'window'
+  | 'stairs'
+  | 'road'
+  | 'sidewalk'
+  | 'barrier'
+  | 'furniture'
+  | 'vehicle'
+  | 'vegetation'
+  | 'prop'
+  | 'electronics'
+  | 'light'
+  | 'camera'
+  | 'character'
+  | 'room'
+  | 'group';
+
+/** Ce sur quoi un objet doit reposer. */
+export type SupportKind = 'ground' | 'surface' | 'wall' | 'ceiling' | 'none';
+
+/**
+ * Règles de placement d'un objet (surcharge éventuelle des règles par défaut de son rôle,
+ * définies dans core/semantics.ts).
+ */
+export interface PlacementRules {
+  support?: SupportKind;
+  /** Peut flotter sans support (lampe suspendue, caméra, lumière…). */
+  allowFloating?: boolean;
+  /** Rôles avec lesquels un chevauchement est normal (ex. porte ↔ mur, mur ↔ mur aux angles). */
+  allowOverlapWith?: SemanticRole[];
+}
+
+export type RelationType = 'ON' | 'INSIDE' | 'NEXT_TO' | 'AGAINST' | 'CENTERED_IN' | 'FACING' | 'ATTACHED_TO' | 'ALONG';
+
+/** Dernière relation spatiale utilisée pour placer l'objet (trace exploitable par l'IA). */
+export interface RelationRecord {
+  type: RelationType;
+  targetId: string;
+  params?: Record<string, number | string | boolean>;
+}
+
+/** Provenance d'un objet. */
+export interface ObjectSource {
+  kind: 'user' | 'template' | 'prefab' | 'composer' | 'import' | 'ai';
+  /** Identifiant du modèle de scène, du prefab, de la commande… */
+  ref?: string;
+}
+
+/** Matériau PBR simple (métal / rugosité). */
 export interface MaterialProps {
   color: string;
+  roughness: number;
+  metalness: number;
+  /** 1 = opaque. */
+  opacity: number;
 }
+
+/**
+ * Surcharge de matériau appliquée à toutes les surfaces d'un modèle importé.
+ * Les matériaux d'origine du fichier ne sont jamais modifiés : retirer la surcharge les restaure.
+ */
+export type MaterialOverride = Partial<MaterialProps>;
 
 export interface LightProps {
   /** Seul 'point' est implémenté pour l'instant. */
@@ -87,6 +156,13 @@ export interface AssetRecord {
   category?: string;
   source: AssetSource;
   license?: AssetLicense;
+  /**
+   * Boîte englobante du fichier d'origine (mètres, avant pivot/unité). Connue sans charger le modèle
+   * quand la bibliothèque la fournit : le moteur de placement peut alors travailler « à froid ».
+   */
+  bounds?: { min: Vec3; max: Vec3 };
+  /** Rôle sémantique suggéré pour ses instances. */
+  semanticRole?: SemanticRole;
 }
 
 export type ModelPivot = 'original' | 'bottom-center' | 'center';
@@ -105,6 +181,40 @@ export interface ModelProps {
   unitScale: number;
   castShadow: boolean;
   receiveShadow: boolean;
+  /** null / absent = matériaux d'origine du fichier. */
+  materialOverride?: MaterialOverride | null;
+}
+
+/**
+ * Éléments paramétriques : leur géométrie est générée à partir de dimensions réelles
+ * (mètres), modifiables à tout moment. Pivot : centre de la base.
+ * Axes locaux : X = largeur, Y = hauteur, Z = profondeur (la face avant regarde +Z).
+ */
+export type ElementShape =
+  | 'slab'
+  | 'wall'
+  | 'door'
+  | 'window'
+  | 'stairs'
+  | 'road'
+  | 'sidewalk'
+  | 'building'
+  | 'table'
+  | 'desk'
+  | 'shelf'
+  | 'box'
+  | 'monitor'
+  | 'computer'
+  | 'streetlight'
+  | 'barrier';
+
+export interface ElementProps {
+  shape: ElementShape;
+  /** [largeur, hauteur, profondeur] en mètres. */
+  size: Vec3;
+  /** Paramètres propres à la forme (ex. nombre de marches), validés par core/elements.ts. */
+  params: Record<string, number>;
+  material: MaterialProps;
 }
 
 interface SceneObjectBase {
@@ -122,6 +232,16 @@ interface SceneObjectBase {
   tags: string[];
   /** Espace libre et sérialisable (ex. futures métadonnées IA : metadata.ai = {...}). */
   metadata: Record<string, unknown>;
+  /** Ce que l'objet représente dans le monde. */
+  semanticRole: SemanticRole;
+  /** Catégorie de bibliothèque d'origine (ex. "props.furniture"), si connue. */
+  category?: string;
+  /** Surcharge des règles de placement du rôle. */
+  placement?: PlacementRules;
+  /** Dernière relation utilisée pour le placer. */
+  relation?: RelationRecord;
+  /** Provenance. */
+  source?: ObjectSource;
 }
 
 export interface BoxObject extends SceneObjectBase {
@@ -149,7 +269,17 @@ export interface ModelObject extends SceneObjectBase {
   model: ModelProps;
 }
 
-export type SceneObject = BoxObject | SphereObject | LightObject | CameraObject | ModelObject;
+/** Conteneur : déplacer, masquer, verrouiller, dupliquer ou supprimer un groupe agit sur tout son contenu. */
+export interface GroupObject extends SceneObjectBase {
+  type: 'group';
+}
+
+export interface ElementObject extends SceneObjectBase {
+  type: 'element';
+  element: ElementProps;
+}
+
+export type SceneObject = BoxObject | SphereObject | LightObject | CameraObject | ModelObject | GroupObject | ElementObject;
 
 export interface SceneSettings {
   background: string;
@@ -177,6 +307,8 @@ export interface SceneDocument {
   objects: Record<ObjectId, SceneObject>;
   /** Assets utilisés par les objets `model` (une entrée par asset, partagée par ses instances). */
   assets: Record<AssetId, AssetRecord>;
+  /** Métadonnées libres de la scène (ex. prompt d'origine, auteur, notes). */
+  metadata: Record<string, unknown>;
 }
 
 /**
@@ -195,6 +327,12 @@ export interface ObjectChanges {
   light?: LightProps;
   camera?: CameraProps;
   model?: ModelProps;
+  element?: ElementProps;
+  semanticRole?: SemanticRole;
+  category?: string;
+  placement?: PlacementRules;
+  relation?: RelationRecord;
+  source?: ObjectSource;
 }
 
 export type ObjectChangeKey = keyof ObjectChanges;

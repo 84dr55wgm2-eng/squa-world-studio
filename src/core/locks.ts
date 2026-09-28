@@ -37,9 +37,19 @@ export function checkOperation(doc: SceneDocument, op: Operation): string | null
       }
       return null;
     }
+    case 'move': {
+      const obj = doc.objects[op.id];
+      if (!obj) return `Objet introuvable : ${op.id}`;
+      if (isEffectivelyLocked(doc, op.id)) return `« ${obj.name} » est verrouillé.`;
+      if (op.parentId !== null && doc.objects[op.parentId] && isEffectivelyLocked(doc, op.parentId)) {
+        return `« ${doc.objects[op.parentId].name} » est verrouillé : impossible d'y ajouter un objet.`;
+      }
+      return null;
+    }
     case 'settings':
     case 'project':
     case 'asset':
+    case 'docMetadata':
       return null;
   }
 }

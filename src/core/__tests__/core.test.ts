@@ -91,7 +91,7 @@ describe('opérations et inverses', () => {
 
   it('refuse un champ qui ne correspond pas au type (material sur une lumière)', () => {
     const { doc, ids } = sceneWith('light');
-    const r = commit(doc, emptyHistory(), updateObjectTx(doc, ids[0], { material: { color: '#ff0000' } }));
+    const r = commit(doc, emptyHistory(), updateObjectTx(doc, ids[0], { material: { color: '#ff0000', roughness: 0.7, metalness: 0, opacity: 1 } }));
     assert.equal(r.ok, false);
   });
 
@@ -184,7 +184,7 @@ describe('verrouillage', () => {
     const move = commit(doc, history, setTransformTx(doc, id, { position: [3, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] }));
     assert.equal(move.ok, false);
     if (!move.ok) assert.match(move.error, /verrouillé/);
-    assert.equal(commit(doc, history, updateObjectTx(doc, id, { material: { color: '#ff0000' } })).ok, false);
+    assert.equal(commit(doc, history, updateObjectTx(doc, id, { material: { color: '#ff0000', roughness: 0.7, metalness: 0, opacity: 1 } })).ok, false);
     assert.equal(commit(doc, history, deleteObjectTx(doc, id)).ok, false);
 
     ({ doc, history } = mustCommit(doc, history, renameObjectTx(doc, id, 'Comptoir')));
@@ -243,7 +243,7 @@ describe('undo / redo', () => {
     const before = doc;
     const colors = ['#110000', '#220000', '#330000'];
     colors.forEach((color, i) => {
-      ({ doc, history } = mustCommit(doc, history, updateObjectTx(doc, ids[0], { material: { color } }), {
+      ({ doc, history } = mustCommit(doc, history, updateObjectTx(doc, ids[0], { material: { color, roughness: 0.7, metalness: 0, opacity: 1 } }), {
         mergeKey: 'color',
         now: 1000 + i * 100,
       }));
@@ -255,8 +255,8 @@ describe('undo / redo', () => {
 
   it('ne fusionne pas au-delà de la fenêtre de temps', () => {
     let { doc, history, ids } = sceneWith('box');
-    ({ doc, history } = mustCommit(doc, history, updateObjectTx(doc, ids[0], { material: { color: '#110000' } }), { mergeKey: 'c', now: 0 }));
-    ({ doc, history } = mustCommit(doc, history, updateObjectTx(doc, ids[0], { material: { color: '#220000' } }), { mergeKey: 'c', now: 5000 }));
+    ({ doc, history } = mustCommit(doc, history, updateObjectTx(doc, ids[0], { material: { color: '#110000', roughness: 0.7, metalness: 0, opacity: 1 } }), { mergeKey: 'c', now: 0 }));
+    ({ doc, history } = mustCommit(doc, history, updateObjectTx(doc, ids[0], { material: { color: '#220000', roughness: 0.7, metalness: 0, opacity: 1 } }), { mergeKey: 'c', now: 5000 }));
     assert.equal(history.past.length, 3);
   });
 

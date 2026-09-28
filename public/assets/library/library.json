@@ -1,6 +1,6 @@
 {
   "format": "squa-world-studio/asset-library",
-  "version": 1,
+  "version": 2,
   "assets": [
     {
       "id": "chair-damask",
@@ -24,7 +24,32 @@
       "metadata": {
         "source": "Khronos glTF-Sample-Assets",
         "originalName": "ChairDamaskPurplegold"
-      }
+      },
+      "semanticRole": "furniture",
+      "bounds": {
+        "min": [
+          -0.41507,
+          -0.00041,
+          -0.27725
+        ],
+        "max": [
+          0.41354,
+          0.68695,
+          0.29458
+        ]
+      },
+      "stats": {
+        "meshes": 11,
+        "triangles": 9984,
+        "materials": 4,
+        "textures": 9,
+        "fileSize": 2028924
+      },
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ]
     },
     {
       "id": "velvet-sofa",
@@ -49,7 +74,32 @@
       "metadata": {
         "source": "Khronos glTF-Sample-Assets",
         "originalName": "GlamVelvetSofa"
-      }
+      },
+      "semanticRole": "furniture",
+      "bounds": {
+        "min": [
+          -1.11397,
+          5e-05,
+          -0.6277
+        ],
+        "max": [
+          1.07447,
+          0.78759,
+          0.39513
+        ]
+      },
+      "stats": {
+        "meshes": 3,
+        "triangles": 4196,
+        "materials": 7,
+        "textures": 2,
+        "fileSize": 3149844
+      },
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ]
     },
     {
       "id": "vase-flowers",
@@ -73,7 +123,32 @@
       "metadata": {
         "source": "Khronos glTF-Sample-Assets",
         "originalName": "GlassVaseFlowers"
-      }
+      },
+      "semanticRole": "prop",
+      "bounds": {
+        "min": [
+          -0.05352,
+          -0.0,
+          -0.06829
+        ],
+        "max": [
+          0.16376,
+          0.20322,
+          0.0742
+        ]
+      },
+      "stats": {
+        "meshes": 4,
+        "triangles": 14036,
+        "materials": 3,
+        "textures": 4,
+        "fileSize": 1819824
+      },
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ]
     },
     {
       "id": "broken-window",
@@ -97,7 +172,32 @@
       "metadata": {
         "source": "Khronos glTF-Sample-Assets",
         "originalName": "GlassBrokenWindow"
-      }
+      },
+      "semanticRole": "window",
+      "bounds": {
+        "min": [
+          -0.25206,
+          0.00015,
+          -0.01841
+        ],
+        "max": [
+          0.25594,
+          0.51662,
+          0.01967
+        ]
+      },
+      "stats": {
+        "meshes": 3,
+        "triangles": 987,
+        "materials": 3,
+        "textures": 5,
+        "fileSize": 1076624
+      },
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ]
     },
     {
       "id": "milk-truck",
@@ -121,7 +221,32 @@
       "metadata": {
         "source": "Khronos glTF-Sample-Assets",
         "originalName": "CesiumMilkTruck"
-      }
+      },
+      "semanticRole": "vehicle",
+      "bounds": {
+        "min": [
+          -1.396,
+          -0.06879,
+          -2.43091
+        ],
+        "max": [
+          1.396,
+          2.58437,
+          2.438
+        ]
+      },
+      "stats": {
+        "meshes": 3,
+        "triangles": 3624,
+        "materials": 4,
+        "textures": 1,
+        "fileSize": 369980
+      },
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ]
     },
     {
       "id": "cesium-man",
@@ -144,6 +269,536 @@
       "metadata": {
         "source": "Khronos glTF-Sample-Assets",
         "originalName": "CesiumMan"
+      },
+      "semanticRole": "character",
+      "bounds": {
+        "min": [
+          -0.56914,
+          0.0,
+          -0.131
+        ],
+        "max": [
+          0.56914,
+          1.50655,
+          0.18095
+        ]
+      },
+      "stats": {
+        "meshes": 1,
+        "triangles": 4672,
+        "materials": 1,
+        "textures": 1,
+        "fileSize": 438044
+      },
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "id": "sheen-chair",
+      "name": "Chaise en tissu",
+      "category": "props.furniture",
+      "modelUrl": "sheen-chair/SheenChair.glb",
+      "thumbnailUrl": "sheen-chair/thumb.jpg",
+      "tags": [
+        "chaise",
+        "siège",
+        "mobilier",
+        "intérieur",
+        "bureau"
+      ],
+      "defaultScale": 1,
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ],
+      "pivot": "bottom-center",
+      "semanticRole": "furniture",
+      "bounds": {
+        "min": [
+          -0.41402,
+          -7e-05,
+          -0.27673
+        ],
+        "max": [
+          0.41254,
+          0.68618,
+          0.29354
+        ]
+      },
+      "stats": {
+        "meshes": 4,
+        "triangles": 39936,
+        "materials": 6,
+        "textures": 7,
+        "fileSize": 1734112
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Eric Chadwick",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/SheenChair"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "SheenChair",
+        "optimized": "textures ≤ 1024 px (scripts/optimize-glb.py)"
+      }
+    },
+    {
+      "id": "leather-sofa",
+      "name": "Canapé cuir et bois",
+      "category": "props.furniture",
+      "modelUrl": "leather-sofa/SheenWoodLeatherSofa.glb",
+      "thumbnailUrl": "leather-sofa/thumb.jpg",
+      "tags": [
+        "canapé",
+        "sofa",
+        "cuir",
+        "salon",
+        "intérieur"
+      ],
+      "defaultScale": 1,
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ],
+      "pivot": "bottom-center",
+      "semanticRole": "furniture",
+      "bounds": {
+        "min": [
+          -1.3629,
+          0.00063,
+          -0.4627
+        ],
+        "max": [
+          1.3629,
+          1.11793,
+          0.46049
+        ]
+      },
+      "stats": {
+        "meshes": 6,
+        "triangles": 46492,
+        "materials": 6,
+        "textures": 13,
+        "fileSize": 10107912
+      },
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Eric Chadwick (modèle), Fran Calvente (CC0, maillage d’origine)",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/SheenWoodLeatherSofa"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "SheenWoodLeatherSofa",
+        "optimized": "textures ≤ 1024 px (scripts/optimize-glb.py)"
+      }
+    },
+    {
+      "id": "silk-pouf",
+      "name": "Pouf en soie",
+      "category": "props.furniture",
+      "modelUrl": "silk-pouf/SpecularSilkPouf.glb",
+      "thumbnailUrl": "silk-pouf/thumb.jpg",
+      "tags": [
+        "pouf",
+        "siège",
+        "salon",
+        "chambre"
+      ],
+      "defaultScale": 1,
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ],
+      "pivot": "bottom-center",
+      "semanticRole": "furniture",
+      "bounds": {
+        "min": [
+          -0.30497,
+          0.0,
+          -0.30502
+        ],
+        "max": [
+          0.30497,
+          0.19778,
+          0.30502
+        ]
+      },
+      "stats": {
+        "meshes": 1,
+        "triangles": 81280,
+        "materials": 1,
+        "textures": 2,
+        "fileSize": 2692548
+      },
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Eric Chadwick",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/SpecularSilkPouf"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "SpecularSilkPouf",
+        "optimized": "textures ≤ 1024 px (scripts/optimize-glb.py)"
+      }
+    },
+    {
+      "id": "refrigerator",
+      "name": "Réfrigérateur vitré",
+      "category": "props.electronics",
+      "modelUrl": "refrigerator/CommercialRefrigerator.glb",
+      "thumbnailUrl": "refrigerator/thumb.jpg",
+      "tags": [
+        "frigo",
+        "réfrigérateur",
+        "boissons",
+        "commerce",
+        "cybercafé"
+      ],
+      "defaultScale": 1,
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ],
+      "pivot": "bottom-center",
+      "semanticRole": "electronics",
+      "bounds": {
+        "min": [
+          -0.4766,
+          -0.0,
+          -0.46032
+        ],
+        "max": [
+          0.40045,
+          2.18404,
+          0.52434
+        ]
+      },
+      "stats": {
+        "meshes": 6,
+        "triangles": 208679,
+        "materials": 6,
+        "textures": 10,
+        "fileSize": 8918284
+      },
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Eric Chadwick, Sean Thomas",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CommercialRefrigerator"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "CommercialRefrigerator",
+        "optimized": "textures ≤ 1024 px (scripts/optimize-glb.py)"
+      }
+    },
+    {
+      "id": "boombox",
+      "name": "Radio-cassette",
+      "category": "props.electronics",
+      "modelUrl": "boombox/BoomBox.glb",
+      "thumbnailUrl": "boombox/thumb.jpg",
+      "tags": [
+        "radio",
+        "audio",
+        "musique",
+        "objet"
+      ],
+      "defaultScale": 1,
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ],
+      "pivot": "bottom-center",
+      "semanticRole": "electronics",
+      "bounds": {
+        "min": [
+          -0.00992,
+          -0.00977,
+          -0.01008
+        ],
+        "max": [
+          0.00992,
+          0.00977,
+          0.01008
+        ]
+      },
+      "stats": {
+        "meshes": 1,
+        "triangles": 6036,
+        "materials": 1,
+        "textures": 4,
+        "fileSize": 453088
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Microsoft",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/BoomBox"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "BoomBox",
+        "optimized": "textures ≤ 1024 px (scripts/optimize-glb.py)"
+      },
+      "unitScale": 25
+    },
+    {
+      "id": "water-bottle",
+      "name": "Gourde",
+      "category": "props.objects",
+      "modelUrl": "water-bottle/WaterBottle.glb",
+      "thumbnailUrl": "water-bottle/thumb.jpg",
+      "tags": [
+        "bouteille",
+        "gourde",
+        "objet",
+        "bureau"
+      ],
+      "defaultScale": 1,
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ],
+      "pivot": "bottom-center",
+      "semanticRole": "prop",
+      "bounds": {
+        "min": [
+          -0.05445,
+          -0.13022,
+          -0.05445
+        ],
+        "max": [
+          0.05445,
+          0.13022,
+          0.05445
+        ]
+      },
+      "stats": {
+        "meshes": 1,
+        "triangles": 4510,
+        "materials": 1,
+        "textures": 4,
+        "fileSize": 320260
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "Microsoft",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/WaterBottle"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "WaterBottle",
+        "optimized": "textures ≤ 1024 px (scripts/optimize-glb.py)"
+      }
+    },
+    {
+      "id": "barn-lamp",
+      "name": "Applique de grange",
+      "category": "lights",
+      "modelUrl": "barn-lamp/AnisotropyBarnLamp.glb",
+      "thumbnailUrl": "barn-lamp/thumb.jpg",
+      "tags": [
+        "lampe",
+        "applique",
+        "éclairage",
+        "métal"
+      ],
+      "defaultScale": 1,
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ],
+      "pivot": "bottom-center",
+      "semanticRole": "prop",
+      "bounds": {
+        "min": [
+          -0.10462,
+          -0.19829,
+          -0.0
+        ],
+        "max": [
+          0.08619,
+          0.05695,
+          0.22654
+        ]
+      },
+      "stats": {
+        "meshes": 3,
+        "triangles": 10203,
+        "materials": 3,
+        "textures": 4,
+        "fileSize": 764364
+      },
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Eric Chadwick",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/AnisotropyBarnLamp"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "AnisotropyBarnLamp",
+        "optimized": "textures ≤ 1024 px (scripts/optimize-glb.py)"
+      }
+    },
+    {
+      "id": "lantern",
+      "name": "Lanterne sur potence",
+      "category": "urban.lighting",
+      "modelUrl": "lantern/Lantern.glb",
+      "thumbnailUrl": "lantern/thumb.jpg",
+      "tags": [
+        "lanterne",
+        "éclairage",
+        "rue",
+        "potence"
+      ],
+      "defaultScale": 1,
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ],
+      "pivot": "bottom-center",
+      "semanticRole": "prop",
+      "bounds": {
+        "min": [
+          -3.92245,
+          0.18392,
+          -2.31571
+        ],
+        "max": [
+          11.56875,
+          25.84814,
+          2.31571
+        ]
+      },
+      "stats": {
+        "meshes": 3,
+        "triangles": 5394,
+        "materials": 1,
+        "textures": 4,
+        "fileSize": 1712040
+      },
+      "license": {
+        "spdx": "CC0-1.0",
+        "author": "sbtron, Frank Galligan",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/Lantern"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "Lantern",
+        "optimized": "textures ≤ 1024 px (scripts/optimize-glb.py)"
+      },
+      "unitScale": 0.1
+    },
+    {
+      "id": "plant",
+      "name": "Plante en pot",
+      "category": "nature.plants",
+      "modelUrl": "plant/DiffuseTransmissionPlant.glb",
+      "thumbnailUrl": "plant/thumb.jpg",
+      "tags": [
+        "plante",
+        "pot",
+        "végétation",
+        "intérieur"
+      ],
+      "defaultScale": 1,
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ],
+      "pivot": "bottom-center",
+      "semanticRole": "vegetation",
+      "bounds": {
+        "min": [
+          -0.39666,
+          5e-05,
+          -0.42031
+        ],
+        "max": [
+          0.3045,
+          0.84123,
+          0.23707
+        ]
+      },
+      "stats": {
+        "meshes": 9,
+        "triangles": 68409,
+        "materials": 3,
+        "textures": 7,
+        "fileSize": 4367312
+      },
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Eric Chadwick (modèle), Rico Cilliers (CC0, maillage d’origine)",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/DiffuseTransmissionPlant"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "DiffuseTransmissionPlant",
+        "optimized": "textures ≤ 1024 px (scripts/optimize-glb.py)"
+      }
+    },
+    {
+      "id": "car-concept",
+      "name": "Voiture concept",
+      "category": "vehicles",
+      "modelUrl": "car-concept/CarConcept.glb",
+      "thumbnailUrl": "car-concept/thumb.jpg",
+      "tags": [
+        "voiture",
+        "auto",
+        "véhicule",
+        "rue"
+      ],
+      "defaultScale": 1,
+      "defaultRotation": [
+        0,
+        0,
+        0
+      ],
+      "pivot": "bottom-center",
+      "semanticRole": "vehicle",
+      "bounds": {
+        "min": [
+          -1.3633,
+          -0.1593,
+          -1.94023
+        ],
+        "max": [
+          1.35286,
+          1.14866,
+          2.41715
+        ]
+      },
+      "stats": {
+        "meshes": 97,
+        "triangles": 213347,
+        "materials": 29,
+        "textures": 14,
+        "fileSize": 9404308
+      },
+      "license": {
+        "spdx": "CC-BY-4.0",
+        "author": "Eric Chadwick (le logo Khronos est une marque, non soumise au droit d’auteur)",
+        "sourceUrl": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CarConcept"
+      },
+      "metadata": {
+        "source": "Khronos glTF-Sample-Assets",
+        "originalName": "CarConcept",
+        "optimized": "textures ≤ 1024 px (scripts/optimize-glb.py)"
       }
     }
   ]
