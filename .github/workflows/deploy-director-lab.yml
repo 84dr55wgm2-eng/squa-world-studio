@@ -1,0 +1,39 @@
+name: Deploy Director Lab
+
+on:
+  push:
+    branches: ["director-lab-wow"]
+    paths:
+      - "director-lab/**"
+      - ".github/workflows/deploy-director-lab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-director-lab"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Prepare site
+        run: |
+          mkdir -p _site/director-lab
+          cp director-lab/index.html _site/director-lab/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
