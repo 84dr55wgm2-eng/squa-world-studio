@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SQUA — Yaba Cybercafé 2003</title>
+<style>
+:root{color-scheme:dark;--bg:#0e0f11;--panel:#17191d;--line:#2a2d32;--text:#f3f4f6;--muted:#a6abb4;--accent:#7b8cff;--good:#5fd694;--bad:#ff7a7a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.app{max-width:1280px;margin:auto;padding:16px}.top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}.eyebrow{font-size:11px;letter-spacing:.12em;color:#c8ccff}.top h1{font-size:clamp(20px,4vw,34px);margin:4px 0}.top p{margin:0;color:var(--muted);max-width:760px}.status{display:flex;gap:8px;flex-wrap:wrap}.pill{border:1px solid var(--line);border-radius:999px;padding:7px 10px;color:var(--muted);white-space:nowrap}
+.stage{position:relative;height:min(68vh,650px);min-height:390px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#13100d}
+canvas{width:100%;height:100%;display:block}.hud{position:absolute;top:12px;padding:8px 10px;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:rgba(0,0,0,.38);backdrop-filter:blur(8px);font-size:12px}.hud.left{left:12px}.hud.right{right:12px;text-align:right}.hud b,.hud span{display:block}.hud span{color:#c5c7ce}.film{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at center,transparent 50%,rgba(0,0,0,.24)),linear-gradient(to bottom,rgba(255,210,160,.015),rgba(0,0,0,.08))}
+.controls{display:grid;grid-template-columns:1.3fr .7fr;gap:12px;margin-top:12px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}.title{font-weight:650;margin-bottom:8px}.row{display:flex;gap:8px;flex-wrap:wrap}.btn{appearance:none;border:1px solid var(--line);background:#111318;color:var(--text);border-radius:10px;padding:10px 12px;min-height:44px;cursor:pointer}.btn.on{background:#252b49;border-color:#6172ff}.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.audit{margin-top:12px}.audit.hidden{display:none}.audit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.audit-row{border:1px solid var(--line);border-radius:10px;padding:9px 10px;color:var(--muted)}.audit-row b{color:var(--text)}.pass{border-color:rgba(95,214,148,.35)}.fail{border-color:rgba(255,122,122,.4)}.score{font-size:22px;font-weight:700;color:var(--good)}
+.notes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.note{border:1px solid var(--line);border-radius:10px;padding:10px;color:var(--muted)}.note b{display:block;color:var(--text);margin-bottom:3px}
+footer{padding:12px 2px;color:var(--muted);font-size:12px}
+@media(max-width:760px){.top,.controls{display:block}.status{margin-top:10px}.controls>.panel{margin-top:10px}.notes,.audit-grid{grid-template-columns:1fr}.stage{height:58vh;min-height:420px}.hud.right{top:auto;bottom:12px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+<div><div class="eyebrow">SQUA · HIGH-END SHOT TEST</div><h1>Yaba Cybercafé · Lagos · 2003</h1><p>Prototype web interactif centré sur la cohérence fonctionnelle : orientation des CRT, chaises, claviers, câblage, comptoir et ventilation.</p></div>
+<div class="status"><span class="pill" id="status">Chargement…</span><span class="pill" id="fps">— fps</span></div>
+</header>
+
+<section class="stage" id="stageWrap">
+<canvas id="stage"></canvas>
+<div class="film" id="film"></div>
+<div class="hud left"><b id="shotTitle">Entrée / établissement</b><span id="shotMeta">28 mm · hauteur humaine</span></div>
+<div class="hud right"><b>Rendu</b><span id="renderLabel">ACES · SSAO · ombres douces</span></div>
+</section>
+
+<section class="controls">
+<div class="panel"><div class="title">Caméra</div><div class="row" id="cams">
+<button class="btn on" data-shot="entry">Entrée</button><button class="btn" data-shot="left">Rangée gauche</button><button class="btn" data-shot="right">Rangée droite</button><button class="btn" data-shot="manager">Comptoir</button><button class="btn" data-shot="crt">CRT serré</button>
+</div></div>
+<div class="panel"><div class="title">Inspection</div><div class="row"><button class="btn" id="auditBtn">Audit sens</button><button class="btn" id="nightBtn">Soirée</button><button class="btn on" id="fxBtn">Film FX</button></div></div>
+</section>
+
+<section class="panel audit hidden" id="auditPanel">
+<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:8px"><div><div class="title" style="margin:0">Audit fonctionnel calculé</div><div style="color:var(--muted);font-size:12px">Les règles utilisent les positions et rotations réelles de la scène.</div></div><div class="score" id="auditScore">—</div></div>
+<div class="audit-grid" id="auditRows"></div>
+</section>
+
+<section class="panel" style="margin-top:12px">
+<div class="title">Ce qui est verrouillé dans cette scène</div>
+<div class="notes">
+<div class="note"><b>10 postes</b>5 de chaque côté, clients tournés vers leurs écrans, passage central conservé.</div>
+<div class="note"><b>Comptoir à l’entrée</b>Client côté porte, gérant côté intérieur, imprimante/téléphone côté gérant.</div>
+<div class="note"><b>Câblage arrière</b>Les câbles quittent les CRT vers les murs, pas à travers le passage.</div>
+<div class="note"><b>Ventilation</b>Ventilateur sur pied vers les clients, ventilateur mural vers la salle.</div>
+<div class="note"><b>Caméra</b>Presets 28–75 mm, orbite manuelle et interpolation douce.</div>
+<div class="note"><b>Période</b>CRT, mobilier simple, signalétique browsing/e-mail/print/scan, aucun écran plat moderne.</div>
+</div>
+</section>
+<footer>Glisser pour orbiter · molette/pincement pour zoomer · A = audit · 1–5 = caméras</footer>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/+esm';
+import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js/+esm';
+import {RoundedBoxGeometry} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/geometries/RoundedBoxGeometry.js/+esm';
+import {EffectComposer} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/EffectComposer.js/+esm';
+import {RenderPass} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/RenderPass.js/+esm';
+import {SSAOPass} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/SSAOPass.js/+esm';
+import {UnrealBloomPass} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/UnrealBloomPass.js/+esm';
+import {OutputPass} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/postprocessing/OutputPass.js/+esm';
+import {RoomEnvironment} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/environments/RoomEnvironment.js/+esm';
+import {RectAreaLightUniformsLib} from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/lights/RectAreaLightUniformsLib.js/+esm';
+
+const $=q=>document.querySelector(q),canvas=$('#stage'),wrap=$('#stageWrap'),statusEl=$('#status'),fpsEl=$('#fps');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x171410);scene.fog=new THREE.Fog(0x2b251e,12,27);
+const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(new RoomEnvironment(renderer),.04).texture;pmrem.dispose();RectAreaLightUniformsLib.init();
+const camera=new THREE.PerspectiveCamera(48,1,.08,80);camera.position.set(0,2.15,10.5);
+const controls=new OrbitControls(camera,canvas);controls.enableDamping=true;controls.dampingFactor=.07;controls.minDistance=1.4;controls.maxDistance=17;controls.maxPolarAngle=Math.PI*.49;controls.target.set(0,1.45,-.3);
+let auto=true;controls.addEventListener('start',()=>auto=false);
+const composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));const ssao=new SSAOPass(scene,camera,1280,720);ssao.kernelRadius=12;ssao.minDistance=.002;ssao.maxDistance=.12;composer.addPass(ssao);const bloom=new UnrealBloomPass(new THREE.Vector2(1280,720),.1,.38,.92);composer.addPass(bloom);composer.addPass(new OutputPass());
+
+function tex(base,kind,seed=1){const c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');let s=seed*7777;const r=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296};x.fillStyle=base;x.fillRect(0,0,512,512);
+if(kind==='wall'){for(let i=0;i<1000;i++){x.fillStyle=`rgba(60,42,29,${.015+r()*.055})`;x.fillRect(r()*512,r()*512,2+r()*28,1+r()*5)}for(let i=0;i<14;i++){x.strokeStyle=`rgba(55,38,28,${.07+r()*.12})`;x.beginPath();let px=r()*512,py=r()*512;x.moveTo(px,py);for(let j=0;j<5;j++){px+=-20+r()*40;py+=10+r()*35;x.lineTo(px,py)}x.stroke()}}
+if(kind==='floor'){for(let yy=0;yy<8;yy++)for(let xx=0;xx<8;xx++){const v=72+Math.floor(r()*18);x.fillStyle=`rgb(${v},${v-3},${v-7})`;x.fillRect(xx*64+1,yy*64+1,62,62)}}
+if(kind==='wood'){for(let i=0;i<50;i++){x.fillStyle=`rgba(35,20,10,${.04+r()*.11})`;x.fillRect(0,r()*512,512,1+r()*3)}}
+const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
+const wallT=tex('#8e755d','wall',2);wallT.repeat.set(2.5,1.35);const floorT=tex('#595248','floor',4);floorT.repeat.set(4.5,8);const woodT=tex('#65472e','wood',8);woodT.repeat.set(4,1.1);
+const matWall=new THREE.MeshStandardMaterial({map:wallT,roughness:.92}),matFloor=new THREE.MeshStandardMaterial({map:floorT,roughness:.86}),matWood=new THREE.MeshPhysicalMaterial({map:woodT,roughness:.7,clearcoat:.04});
+const beige=new THREE.MeshPhysicalMaterial({color:0xc8bba7,roughness:.56,clearcoat:.05}),dark=new THREE.MeshPhysicalMaterial({color:0x24211e,roughness:.62}),metal=new THREE.MeshStandardMaterial({color:0x393a3c,roughness:.42,metalness:.62}),paper=new THREE.MeshStandardMaterial({color:0xe7d9b9,roughness:.9}),cableMat=new THREE.MeshStandardMaterial({color:0x111,roughness:.8});
+const rounded=(w,h,d,r,m)=>{const o=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,6,r),m);o.castShadow=o.receiveShadow=true;return o},box=(w,h,d,m)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.castShadow=o.receiveShadow=true;return o},add=(o,x,y,z,p=scene)=>{o.position.set(x,y,z);p.add(o);return o};
+
+const room=new THREE.Group();scene.add(room);const fl=add(new THREE.Mesh(new THREE.PlaneGeometry(6.6,11.6),matFloor),0,0,-.1,room);fl.rotation.x=-Math.PI/2;
+add(box(6.6,5.7,.15,matWall),0,2.85,-5.85,room);add(box(.15,5.7,11.6,matWall),-3.3,2.85,-.1,room);add(box(.15,5.7,11.6,matWall),3.3,2.85,-.1,room);
+const ceil=add(new THREE.Mesh(new THREE.PlaneGeometry(6.6,11.6),new THREE.MeshStandardMaterial({color:0x51473d,roughness:.98})),0,5.7,-.1,room);ceil.rotation.x=Math.PI/2;
+add(box(.12,5.1,.14,metal),-2.95,2.55,5.65,room);add(box(.12,5.1,.14,metal),-1.25,2.55,5.65,room);add(box(1.82,.12,.14,metal),-2.1,5.05,5.65,room);
+
+function signTex(){const c=document.createElement('canvas');c.width=1024;c.height=512;const x=c.getContext('2d');x.fillStyle='#ded0ad';x.fillRect(0,0,1024,512);x.strokeStyle='#392e24';x.lineWidth=16;x.strokeRect(18,18,988,476);x.fillStyle='#30261e';x.textAlign='center';x.font='700 78px Arial';x.fillText('CYBER CAFÉ',512,108);x.font='600 44px Arial';x.fillText('BROWSING · E-MAIL · PRINT',512,220);x.fillText('SCAN · PHOTOCOPY',512,292);x.font='500 34px Arial';x.fillText('15 MIN · 30 MIN · 1 HOUR',512,402);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
+const sign=new THREE.Mesh(new THREE.PlaneGeometry(3.8,1.9),new THREE.MeshBasicMaterial({map:signTex()}));sign.position.set(0,3.8,-5.64);room.add(sign);
+
+const auditVisuals=[],workstations=[],screenMats=[];
+function crt(){const g=new THREE.Group();g.add(rounded(.92,.72,.78,.09,beige));const bz=rounded(.71,.49,.045,.06,dark);bz.position.set(0,.05,.412);g.add(bz);const sm=new THREE.MeshStandardMaterial({color:0x7faea2,emissive:0x285e55,emissiveIntensity:.85,roughness:.27});screenMats.push(sm);const sc=new THREE.Mesh(new THREE.PlaneGeometry(.63,.39,18,12),sm);sc.position.set(0,.05,.438);g.add(sc);const base=rounded(.48,.08,.4,.045,beige);base.position.set(0,-.53,.03);g.add(base);return g}
+function keyboard(){const g=new THREE.Group();g.add(rounded(.66,.045,.25,.025,beige));for(let rr=0;rr<4;rr++)for(let cc=0;cc<12;cc++){const k=rounded(.038,.014,.034,.006,dark);k.position.set(-.285+cc*.052,.034,-.075+rr*.05);g.add(k)}return g}
+function chair(){const g=new THREE.Group();const s=rounded(.55,.065,.53,.055,beige);s.position.y=.64;g.add(s);const b=rounded(.55,.8,.07,.055,beige);b.position.set(0,1.08,-.24);b.rotation.x=-.08;g.add(b);for(const sx of [-.2,.2])for(const sz of [-.2,.2]){const l=new THREE.Mesh(new THREE.CylinderGeometry(.02,.028,.62,10),beige);l.position.set(sx,.32,sz);g.add(l)}return g}
+function station(side,z){const x=side<0?-2.72:2.72;const desk=add(rounded(1.05,.1,1.74,.03,matWood),x,1.02,z,room);const mon=crt();mon.position.set(x-side*.16,1.56,z);mon.rotation.y=side<0?Math.PI/2:-Math.PI/2;room.add(mon);const key=keyboard();key.position.set(x-side*.56,1.0,z);key.rotation.y=side<0?Math.PI/2:-Math.PI/2;room.add(key);const ch=chair();ch.position.set(x-side*1.12,0,z);ch.rotation.y=side<0?Math.PI/2:-Math.PI/2;room.add(ch);
+const wallX=side<0?-3.18:3.18;const mp=mon.getWorldPosition(new THREE.Vector3());const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(mp.x,.95,z),new THREE.Vector3((mp.x+wallX)/2,.45,z+.08),new THREE.Vector3(wallX,.15,z+.12)]);room.add(new THREE.Mesh(new THREE.TubeGeometry(curve,18,.014,6,false),cableMat));
+const start=ch.getWorldPosition(new THREE.Vector3());start.y=1.1;const target=mon.getWorldPosition(new THREE.Vector3());const ah=new THREE.ArrowHelper(target.clone().sub(start).normalize(),start,.78,0x5fd694,.14,.07);ah.visible=false;scene.add(ah);auditVisuals.push(ah);workstations.push({side,chair:ch,monitor:mon,keyboard:key,cableEnd:new THREE.Vector3(wallX,.15,z+.12),deskBounds:{minX:x-.525,maxX:x+.525,minZ:z-.87,maxZ:z+.87}})}
+[-4.45,-2.2,.05,2.3,4.55].forEach(z=>{station(-1,z);station(1,z)});
+
+const counter=add(rounded(2.3,1.05,.95,.045,matWood),1.72,.53,4.93,room);const managerPos=new THREE.Vector3(1.72,1.1,4.08);
+const printer=rounded(.78,.31,.59,.055,beige);printer.position.set(1.2,1.26,4.65);printer.rotation.y=Math.PI;room.add(printer);const tray=rounded(.5,.03,.3,.02,dark);tray.position.set(0,-.05,.42);printer.add(tray);
+for(let i=0;i<5;i++){const p=add(box(.45,.008,.29,paper),.45+i*.025,1.08,4.73-i*.012,room);p.rotation.y=.03*i}
+add(rounded(.45,.08,.22,.035,dark),2.35,1.08,4.72,room);add(rounded(.5,.04,.35,.02,paper),1.75,1.07,4.72,room);add(rounded(.27,.055,.38,.02,dark),2.75,1.08,4.72,room);
+const ma=new THREE.ArrowHelper(new THREE.Vector3(0,0,-1),new THREE.Vector3(1.72,1.4,5.35),.75,0x5fd694,.14,.07);ma.visible=false;scene.add(ma);auditVisuals.push(ma);
+
+for(const x of [-1.85,1.55]){add(box(2.05,2.15,.13,metal),x,3.3,-5.74,room);for(const sx of [-.55,0,.55])add(box(.035,1.84,.03,metal),x+sx,3.3,-5.59,room)}
+const fanStand=new THREE.Group();fanStand.position.set(-2.5,0,4.45);room.add(fanStand);const pole=new THREE.Mesh(new THREE.CylinderGeometry(.03,.04,1.4,12),metal);pole.position.y=.7;fanStand.add(pole);const base=new THREE.Mesh(new THREE.CylinderGeometry(.35,.44,.07,24),dark);base.position.y=.04;fanStand.add(base);const ring=new THREE.Mesh(new THREE.TorusGeometry(.48,.022,10,48),metal);ring.position.y=1.62;fanStand.add(ring);
+const fanArrow=new THREE.ArrowHelper(new THREE.Vector3(0,0,-1),new THREE.Vector3(-2.5,1.62,4.3),1.1,0xffc857,.16,.08);fanArrow.visible=false;scene.add(fanArrow);auditVisuals.push(fanArrow);
+
+for(const z of [-3.25,0,3.25]){const fixture=rounded(2,.06,.32,.025,new THREE.MeshStandardMaterial({color:0xe8e1d3,emissive:0xfff3d9,emissiveIntensity:1.2,roughness:.4}));fixture.position.set(0,5.55,z);room.add(fixture);const a=new THREE.RectAreaLight(0xffedcf,5.6,2,.42);a.position.set(0,5.42,z);a.rotation.x=-Math.PI/2;scene.add(a)}
+const hemi=new THREE.HemisphereLight(0xaebdd0,0x4a382b,.92);scene.add(hemi);const sun=new THREE.DirectionalLight(0xcce6ff,2.5);sun.position.set(-3.4,7.5,1.4);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);scene.add(sun);
+const glow=new THREE.SpotLight(0xffd7ac,22,15,Math.PI*.26,.5,1.5);glow.position.set(-2.1,4.5,6.3);glow.target.position.set(-.7,1.1,.2);scene.add(glow,glow.target);
+
+const shots={entry:{p:[0,2.12,10.4],t:[0,1.45,-.2],mm:28,title:'Entrée / établissement',meta:'28 mm · hauteur 1,62 m'},left:{p:[.15,1.8,3.55],t:[-2.45,1.35,-1.45],mm:35,title:'Rangée gauche',meta:'35 mm · chaise → clavier → CRT'},right:{p:[-.05,1.78,.65],t:[2.45,1.34,-1.55],mm:40,title:'Rangée droite',meta:'40 mm · câblage côté mur'},manager:{p:[-.2,1.95,7.15],t:[1.68,1.12,4.72],mm:50,title:'Comptoir du gérant',meta:'50 mm · registre / monnaie / imprimante'},crt:{p:[-.42,1.62,-2.42],t:[-2.62,1.56,-2.35],mm:75,title:'Insert CRT',meta:'75 mm · écran côté utilisateur'}};
+const posT=new THREE.Vector3(),lookT=new THREE.Vector3();function setShot(id){const s=shots[id];posT.fromArray(s.p);lookT.fromArray(s.t);camera.setFocalLength(s.mm);$('#shotTitle').textContent=s.title;$('#shotMeta').textContent=s.meta;auto=true;document.querySelectorAll('[data-shot]').forEach(b=>b.classList.toggle('on',b.dataset.shot===id))}document.querySelectorAll('[data-shot]').forEach(b=>b.addEventListener('click',()=>setShot(b.dataset.shot)));setShot('entry');
+
+function angleScore(forward,from,to){const v=to.clone().sub(from).setY(0).normalize();return forward.clone().setY(0).normalize().dot(v)}
+function between(a,b,p){const ab=b.clone().sub(a);const t=p.clone().sub(a).dot(ab)/ab.lengthSq();const q=a.clone().add(ab.multiplyScalar(t));return{t,lateral:q.distanceTo(p)}}
+function audit(){let cp=0,mp=0,kp=0,cb=0;for(const w of workstations){const c=w.chair.getWorldPosition(new THREE.Vector3());c.y=.64;const m=w.monitor.getWorldPosition(new THREE.Vector3()),k=w.keyboard.getWorldPosition(new THREE.Vector3());const cf=new THREE.Vector3(0,0,1).applyQuaternion(w.chair.getWorldQuaternion(new THREE.Quaternion()));const mf=new THREE.Vector3(0,0,1).applyQuaternion(w.monitor.getWorldQuaternion(new THREE.Quaternion()));if(angleScore(cf,c,m)>.94)cp++;if(angleScore(mf,m,c)>.94)mp++;const q=between(c,m,k);if(q.t>.28&&q.t<.86&&q.lateral<.3)kp++;if(Math.abs(w.cableEnd.x)>Math.abs(m.x)&&Math.sign(w.cableEnd.x)===w.side)cb++}
+const pp=printer.getWorldPosition(new THREE.Vector3()),pd=new THREE.Vector3(0,0,1).applyQuaternion(printer.getWorldQuaternion(new THREE.Quaternion())),ps=angleScore(pd,pp,managerPos);const aisle=2*(1.25-.55/2);const counterBounds={minX:.57,maxX:2.87,minZ:4.455,maxZ:5.405};const ov=(a,b)=>a.minX<b.maxX&&a.maxX>b.minX&&a.minZ<b.maxZ&&a.maxZ>b.minZ;const hits=workstations.filter(w=>ov(w.deskBounds,counterBounds)).length;
+return[{n:'Chaises orientées vers leur CRT',ok:cp===10,d:`${cp}/10`},{n:'Écrans orientés vers leur chaise',ok:mp===10,d:`${mp}/10`},{n:'Clavier entre utilisateur et écran',ok:kp===10,d:`${kp}/10`},{n:'Câblage dirigé vers le mur',ok:cb===10,d:`${cb}/10`},{n:'Allée centrale dégagée',ok:aisle>=1.2,d:`${aisle.toFixed(2)} m`},{n:'Imprimante vers le côté gérant',ok:ps>.92,d:`${Math.round(ps*100)} %`},{n:'Comptoir sans collision',ok:hits===0,d:`${hits} collision`},{n:'Entrée dégagée',ok:counterBounds.minX>-1.25,d:'porte gauche, comptoir droite'}]}
+let auditOn=false;$('#auditBtn').onclick=()=>{auditOn=!auditOn;$('#auditBtn').classList.toggle('on',auditOn);$('#auditPanel').classList.toggle('hidden',!auditOn);auditVisuals.forEach(v=>v.visible=auditOn);if(auditOn){const rows=audit(),pass=rows.filter(r=>r.ok).length;$('#auditScore').textContent=`${pass}/${rows.length}`;$('#auditRows').innerHTML=rows.map(r=>`<div class="audit-row ${r.ok?'pass':'fail'}"><b>${r.ok?'PASS':'FAIL'} · ${r.n}</b><div>${r.d}</div></div>`).join('')}}};
+let night=false;$('#nightBtn').onclick=()=>{night=!night;$('#nightBtn').classList.toggle('on',night);$('#nightBtn').textContent=night?'Jour':'Soirée';renderer.toneMappingExposure=night?.72:1;sun.intensity=night?.25:2.5;hemi.intensity=night?.4:.92;glow.intensity=night?7:22;screenMats.forEach(m=>m.emissiveIntensity=night?1.6:.85);scene.background.set(night?0x07090c:0x171410);$('#renderLabel').textContent=night?'ACES · soirée · CRT renforcés':'ACES · SSAO · ombres douces'};
+$('#fxBtn').onclick=()=>{const on=!$('#fxBtn').classList.contains('on');$('#fxBtn').classList.toggle('on',on);$('#film').style.display=on?'block':'none';bloom.strength=on?.1:0};
+window.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='a')$('#auditBtn').click();const ids=['entry','left','right','manager','crt'];const n=Number(e.key);if(n>=1&&n<=5)setShot(ids[n-1])});
+
+function resize(){const r=wrap.getBoundingClientRect(),w=Math.max(1,Math.round(r.width)),h=Math.max(1,Math.round(r.height));renderer.setSize(w,h,false);composer.setSize(w,h);ssao.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(wrap);resize();
+let last=performance.now(),frames=0,ft=last;statusEl.textContent='Scène active';function loop(now){requestAnimationFrame(loop);const dt=Math.min(.05,(now-last)/1000);last=now;if(auto){const a=1-Math.pow(.001,dt);camera.position.lerp(posT,a);controls.target.lerp(lookT,a)}controls.update();composer.render();frames++;if(now-ft>800){fpsEl.textContent=`${Math.round(frames*1000/(now-ft))} fps`;frames=0;ft=now}}requestAnimationFrame(loop);
+</script>
+</body>
+</html>
