@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#080a0e" />
+<title>SQUA Director Lab — Hybrid World / Shot / Render</title>
+<link rel="stylesheet" href="./app.css" />
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><div class="mark"></div><div class="brandtext"><strong>SQUA DIRECTOR</strong><span>Hybrid World Lab</span></div></div>
+    <div class="top-sep"></div><div class="scene-title">Atrium Study · Scene 01 · Director Exploration</div>
+    <div class="top-actions">
+      <div class="chip"><span class="dot"></span><span id="engineStatus">ENGINE READY</span></div>
+      <div class="chip"><span id="fps">— FPS</span></div>
+      <button class="actionbtn mobiletool" id="worldBtn">WORLD</button><button class="actionbtn mobiletool" id="toolsBtn">TOOLS</button><button class="actionbtn" id="dnaOpen">REFERENCE DNA</button>
+      <button class="actionbtn primary" id="exportBtn">PRODUCE SHOT</button>
+    </div>
+  </header>
+  <main class="workspace">
+    <aside class="panel left" id="leftPanel">
+      <section class="panel-section">
+        <div class="section-kicker">World</div>
+        <div class="world-card">
+          <div class="row"><div><div class="world-name">Atrium / Physical Set</div><div class="world-meta">PBR environment · editable layers</div></div><span class="badge">LIVE</span></div>
+          <div class="mini-grid"><div class="stat"><b id="meshCount">—</b><span>meshes</span></div><div class="stat"><b id="triCount">—</b><span>triangles</span></div><div class="stat"><b>6</b><span>shots</span></div></div>
+        </div>
+      </section>
+      <section class="panel-section">
+        <div class="section-title"><span>World layers</span><span class="badge">X-RAY</span></div>
+        <div class="layer" data-layer="architecture"><div class="layer-icon">▦</div><div><div class="layer-name">Architecture</div><div class="layer-sub">shell / openings / collision</div></div><div class="toggle on"></div></div>
+        <div class="layer" data-layer="set"><div class="layer-icon">◫</div><div><div class="layer-name">Set dressing</div><div class="layer-sub">props / fabrics / fixtures</div></div><div class="toggle on"></div></div>
+        <div class="layer" data-layer="vegetation"><div class="layer-icon">⌁</div><div><div class="layer-name">Procedural botanic</div><div class="layer-sub">FABOTANIC-inspired scatter</div></div><div class="toggle on"></div></div>
+        <div class="layer" data-layer="atmosphere"><div class="layer-icon">✦</div><div><div class="layer-name">Atmosphere</div><div class="layer-sub">particle field / fog / shafts</div></div><div class="toggle on"></div></div>
+        <div class="layer" data-layer="analysis"><div class="layer-icon">⌖</div><div><div class="layer-name">Machine vision</div><div class="layer-sub">hover inspect / bounds / semantics</div></div><div class="toggle on"></div></div>
+      </section>
+      <section class="panel-section">
+        <div class="section-title"><span>Parametric world</span><span class="badge">RIVER BEND DNA</span></div>
+        <div class="slider-row"><label>Day / night</label><span class="slider-val" id="timeVal">58%</span></div><input id="timeSlider" type="range" min="0" max="100" value="58" />
+        <div class="slider-row"><label>Atmosphere</label><span class="slider-val" id="fogVal">24%</span></div><input id="fogSlider" type="range" min="0" max="100" value="24" />
+        <div class="slider-row"><label>Botanic density</label><span class="slider-val" id="greenVal">42%</span></div><input id="greenSlider" type="range" min="0" max="100" value="42" />
+        <div class="slider-row"><label>Camera energy</label><span class="slider-val" id="energyVal">36%</span></div><input id="energySlider" type="range" min="0" max="100" value="36" />
+        <div class="tiny-actions"><button class="tinybtn" id="xrayBtn">X-Ray</button><button class="tinybtn" id="tiltBtn">Tilt</button><button class="tinybtn" id="resetBtn">Reset</button></div>
+      </section>
+      <section class="panel-section">
+        <div class="section-title"><span>Shot recipes</span><span class="badge">SHOTCRAFT</span></div>
+        <div class="tiny-actions"><button class="tinybtn active" data-shot="0">Establish</button><button class="tinybtn" data-shot="1">Dolly</button><button class="tinybtn" data-shot="2">Reveal</button></div>
+        <div class="tiny-actions" style="margin-top:6px"><button class="tinybtn" data-shot="3">Orbit</button><button class="tinybtn" data-shot="4">Detail</button><button class="tinybtn" data-shot="5">Hero</button></div>
+      </section>
+    </aside>
+    <section class="viewport" id="viewport">
+      <canvas id="stage"></canvas>
+      <div class="vignette"></div><div class="grain" id="grain"></div><div class="crosshair"></div>
+      <div class="loading" id="loading"><div class="loader-card"><div class="loader-logo">S</div><div class="loader-title">Building a real scene, not boxes.</div><div class="loader-sub">PBR environment · camera rig · semantic inspector · render pipeline</div><div class="progress"><div id="progressBar"></div></div><div class="load-detail" id="loadDetail">initializing renderer</div></div></div>
+      <div class="top-hud">
+        <div class="hud-group">
+          <div class="hud-card"><strong id="shotName">01 · Establish</strong><span id="shotMeta">28 mm · slow push · focus 9.2 m</span></div>
+          <div class="hud-card mode-switch"><button class="on" data-mode="orbit">ORBIT</button><button data-mode="walk">WALK</button><button data-mode="director">DIRECTOR</button></div>
+        </div>
+        <div class="hud-card"><strong id="renderMode">PBR / ACES / SSAO</strong><span id="selectionLabel">hover an object to inspect</span></div>
+      </div>
+      <div class="bottom-hud">
+        <div class="compass"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span><span class="key">⇧</span></div>
+        <div class="hud-card inspect"><div class="mesh" id="meshName">Scene intelligence ready</div><div class="meta" id="meshMeta">Raycast + bounds + material semantics</div><span class="tag">MACHINE VISION</span></div>
+      </div>
+      <div class="mini-map-wrap"><div class="mini-map-head"><span>Floorplan / route</span><span>LIVE</span></div><div class="mini-map"><div class="map-grid"></div><div class="map-path"></div><div class="map-cam" id="mapCam"></div></div></div>
+    </section>
+    <aside class="panel right">
+      <section class="panel-section">
+        <div class="section-kicker">Director command</div>
+        <div class="section-title"><span>Edit by instruction</span><span class="badge">OPENEDIT DNA</span></div>
+        <div class="command"><input id="commandInput" placeholder="ex: nuit, fog 60, plan hero…" /><button id="commandRun">APPLY</button></div>
+        <div class="command-help">Deterministic command compiler. Try: “nuit”, “fog 60”, “xray”, “plan dolly”, “play reel”.</div>
+        <div class="log" id="commandLog"><b>director&gt;</b> scene graph ready<br>waiting for instruction…</div>
+      </section>
+      <section class="panel-section">
+        <div class="section-title"><span>Production route</span><span class="badge">PASSPORT RUSH</span></div>
+        <div class="route-card selected" data-route="browser"><div class="route-head"><div class="route-name">Realtime Browser</div><div class="route-status">READY</div></div><div class="route-desc">Interactive camera + WebGL render. Immediate iteration.</div><div><span class="ref-pill">Hop.Earth</span><span class="ref-pill">SAEL</span><span class="ref-pill">Mini Moto Park</span></div></div>
+        <div class="route-card" data-route="video"><div class="route-head"><div class="route-name">Image → Video</div><div class="route-status">BRIDGE</div></div><div class="route-desc">Freeze approved frame, package camera/style/continuity, send to external video generation.</div><div><span class="ref-pill">Higgsfield</span><span class="ref-pill">Shotcraft</span><span class="ref-pill">OpenEdit</span></div></div>
+        <div class="route-card" data-route="unreal"><div class="route-head"><div class="route-name">Unreal Premium</div><div class="route-status">EXPORT</div></div><div class="route-desc">Scene package → Sequencer / Movie Render Queue / character-motion bridge.</div><div><span class="ref-pill">MotionBricks</span><span class="ref-pill">UE5</span><span class="ref-pill">MRQ</span></div></div>
+      </section>
+      <section class="panel-section">
+        <div class="section-title"><span>Camera rig</span><span class="badge">THEATRE FAWN</span></div>
+        <div class="slider-row"><label>Focal length</label><span class="slider-val" id="focalVal">28 mm</span></div><input id="focalSlider" type="range" min="18" max="120" value="28" />
+        <div class="slider-row"><label>Exposure</label><span class="slider-val" id="exposureVal">1.00</span></div><input id="exposureSlider" type="range" min="40" max="180" value="100" />
+        <div class="slider-row"><label>Focus distance</label><span class="slider-val" id="focusVal">9.2 m</span></div><input id="focusSlider" type="range" min="10" max="200" value="92" />
+      </section>
+      <section class="panel-section">
+        <div class="section-title"><span>External motion</span><span class="badge">MOTIONBRICKS</span></div>
+        <div class="world-card"><div class="row"><div><div class="world-name">Character Motion Bridge</div><div class="world-meta">smart locomotion / smart objects / UE route</div></div><span class="badge">EXTERNAL</span></div><div class="world-meta" style="margin-top:8px">Not faked in-browser. SQUA packages target, heading, object contacts and timing for a dedicated motion engine.</div></div>
+      </section>
+    </aside>
+  </main>
+  <footer class="timeline">
+    <div class="timeline-top"><button class="playbtn" id="playBtn">▶</button><span class="timecode" id="timecode">00:00:00</span><span class="timeline-title">Director Reel · 18.0 s</span><div class="timeline-tools"><button class="tl-btn" id="snapBtn">SNAP</button><button class="tl-btn" id="routeBtn">ROUTE: BROWSER</button></div></div>
+    <div class="tracks"><div class="track-labels"><div class="track-label">SHOT</div><div class="track-label">MOTION</div><div class="track-label">FX</div></div><div class="track-area">
+      <div class="track"><div class="clip" style="left:0%;width:17%">01 Establish</div><div class="clip" style="left:17%;width:18%">02 Dolly</div><div class="clip" style="left:35%;width:16%">03 Reveal</div><div class="clip" style="left:51%;width:17%">04 Orbit</div><div class="clip" style="left:68%;width:14%">05 Detail</div><div class="clip" style="left:82%;width:18%">06 Hero</div></div>
+      <div class="track"><div class="clip motion" style="left:13%;width:26%">continuous camera curve</div><div class="clip motion" style="left:49%;width:27%">parallax / ease</div><div class="clip motion" style="left:80%;width:16%">hold + breathe</div></div>
+      <div class="track"><div class="clip fx" style="left:0%;width:38%">atmosphere field</div><div class="clip fx" style="left:38%;width:33%">shafts / fog</div><div class="clip fx" style="left:71%;width:29%">grade / bloom</div></div>
+      <div class="playhead" id="playhead"></div>
+    </div></div>
+  </footer>
+  <div class="drawer" id="drawer"><div class="drawer-panel"><div class="drawer-head"><div><h2>Reference DNA</h2><p>Ce prototype assemble les idées fortes de tes références au lieu de les empiler comme des liens.</p></div><button class="close" id="dnaClose">×</button></div><div class="dna-grid">
+    <div class="dna"><strong>SAEL / Benchmark Mountain / Interior / River Bend</strong><span>Interactive world, cinematic camera, render tuning, parameter-driven scene behavior.</span><i>WORLD + CAMERA + PARAMETRICS</i></div>
+    <div class="dna"><strong>Shotcraft / Claude Motion Design</strong><span>Shot recipes, continuous camera curves, editable motion beats and timeline-first authoring.</span><i>SHOT SYSTEM</i></div>
+    <div class="dna"><strong>OpenEdit</strong><span>Instruction-driven edit loop: describe change → compile → apply → inspect the result.</span><i>DIRECTOR COMMAND</i></div>
+    <div class="dna"><strong>Floorplan 3D / TechArtist layers</strong><span>Spatial overview, layer toggles, X-ray thinking and route-aware camera planning.</span><i>SPATIAL EDITING</i></div>
+    <div class="dna"><strong>Machine Vision</strong><span>Hover inspection, mesh bounds, scene semantics and selection intelligence.</span><i>SCENE UNDERSTANDING</i></div>
+    <div class="dna"><strong>FABOTANIC / Procedural Buildings</strong><span>Parameter-controlled environmental dressing rather than manual placement for everything.</span><i>PROCEDURAL SET</i></div>
+    <div class="dna"><strong>Three.js Particle Fluids</strong><span>Atmosphere as a living simulation layer, represented here by a directional particle field.</span><i>REALTIME FX</i></div>
+    <div class="dna"><strong>Theatre Fawn / Mini Moto Park / Hop.Earth</strong><span>Free exploration, tactile camera movement, world navigation and immediate browser feedback.</span><i>INTERACTION FEEL</i></div>
+    <div class="dna"><strong>Higgsfield Passport Rush</strong><span>Per-shot production routing: realtime, image-to-video or higher-end external render.</span><i>PRODUCTION ROUTER</i></div>
+    <div class="dna"><strong>MotionBricks</strong><span>Character motion stays a specialist external engine. SQUA directs targets, headings, contacts and timing.</span><i>MOTION BRIDGE</i></div>
+    <div class="dna"><strong>Unreal Engine</strong><span>Premium render target for shots that exceed the browser budget: Sequencer + Movie Render Queue.</span><i>HIGH-END OUTPUT</i></div>
+    <div class="dna"><strong>OpenAI / Claude artifact experiments</strong><span>Agent-assisted scene authoring stays inside one director workflow, not disconnected toys.</span><i>ORCHESTRATION</i></div>
+  </div></div></div>
+  <div class="toast" id="globalToast">Updated</div>
+</div>
+<script type="module" src="./app.js"></script>
+</body></html>
